@@ -1,15 +1,92 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import LowStockAlert from '../shared/LowStockAlert'
+import ColorDot from '../shared/ColorDot'
+import PhoneInfo from '../shared/PhoneInfo'
+import { COLORS } from '../../lib/productColors'
+import { phoneOf } from '../../lib/phoneDetails'
+
+const MAX_IMAGE_MB = 5
 
 function emptyForm() {
   return {
-    category: 'accessory', name: '', purchase_price: '', sale_price: '',
+    category: 'accessory', name: '', color: '', purchase_price: '', sale_price: '',
     stock_quantity: '', low_stock_threshold: 3, supplier: '',
     // phone-only fields
     imei: '', condition: 'used', battery_health: '', internal_warranty_days: 0,
     source_type: 'supplier', source_details: '',
   }
+}
+
+// ---- nicer file picker (replaces the browser's raw "Choisir un fichier" input) ----
+function ImagePicker({ file, existingUrl, onPick, onRemove }) {
+  const [preview, setPreview] = useState(null)
+  useEffect(() => {
+    if (!file) { setPreview(null); return }
+    const url = URL.createObjectURL(file)
+    setPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
+
+  const shown = preview || existingUrl
+  return (
+    <div className="flex items-center gap-3 border border-dashed border-[#d8d8d0] rounded-xl p-3 bg-[#faf9f5]">
+      <div className="w-20 h-20 rounded-lg bg-white border border-[#e5e5e5] overflow-hidden flex items-center justify-center shrink-0">
+        {shown ? <img src={shown} alt="" className="w-full h-full object-cover" /> : <span className="text-2xl opacity-50" aria-hidden="true">🖼️</span>}
+      </div>
+      <div className="min-w-0 flex-1">
+        <label className="inline-flex items-center gap-2 min-h-[40px] px-4 rounded-lg bg-white border border-[#e5e5e5] text-sm font-semibold cursor-pointer hover:border-[#e4211b] hover:text-[#e4211b] active:bg-[#fdeaea] transition-colors">
+          <span aria-hidden="true">📷</span> {shown ? 'تغيير الصورة' : 'اختر أو صوّر صورة'}
+          <input type="file" accept="image/*" className="sr-only"
+            onChange={(e) => { onPick(e.target.files?.[0] || null); e.target.value = '' }} />
+        </label>
+        <p className="text-[11px] text-[#9a9a9a] mt-1.5 truncate">
+          {file ? file.name : shown ? 'الصورة الحالية' : `اختياري · حتى ${MAX_IMAGE_MB} MB`}
+        </p>
+        {shown && (
+          <button type="button" onClick={onRemove} className="text-[11px] font-semibold text-[#b3170f] mt-0.5">إزالة الصورة</button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function StockBadge({ a }) {
+  const out = a.stock_quantity <= 0
+  const low = !out && a.category === 'accessory' && a.low_stock_threshold != null && a.stock_quantity <= a.low_stock_threshold
+  const cls = out ? 'bg-[#fdeaea] text-[#b3170f]' : low ? 'bg-[#fff4e0] text-[#b36b00]' : 'bg-[#e8f6ee] text-[#1f8a4c]'
+  return (
+    <span className={`text-[11px] font-bold rounded-full px-2.5 py-1 whitespace-nowrap ${cls}`}>
+      {out ? 'نفد' : low ? `قليل · ${a.stock_quantity}` : `متوفر · ${a.stock_quantity}`}
+    </span>
+  )
+}
+
+function TypePill({ category }) {
+  return (
+    <span className="text-[11px] font-semibold text-[#6b6b6b] bg-[#f3f1ea] rounded-full px-2 py-0.5 whitespace-nowrap">
+      {category === 'phone' ? '📱 هاتف' : '🛍️ إكسسوار'}
+    </span>
+  )
+}
+
+function Thumb({ a, size = 'w-16 h-16' }) {
+  return a.image_url ? (
+    <img src={a.image_url} alt="" className={`${size} rounded-xl object-cover shrink-0 border border-[#e5e5e5]`} />
+  ) : (
+    <div className={`${size} rounded-xl bg-[#f3f1ea] shrink-0 flex items-center justify-center text-xl`} aria-hidden="true">
+      {a.category === 'phone' ? '📱' : '🛍️'}
+    </div>
+  )
+}
+
+function EditButton({ onClick }) {
+  return (
+    <button type="button" onClick={onClick}
+      className="inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-lg border border-[#e5e5e5] bg-white text-xs font-semibold text-[#1a1a1a] hover:border-[#e4211b] hover:text-[#e4211b] active:bg-[#fdeaea] transition-colors">
+      <span aria-hidden="true">✏️</span> تعديل
+    </button>
+  )
 }
 
 export default function AccessoriesManagement() {
@@ -24,17 +101,25 @@ export default function AccessoriesManagement() {
   const [form, setForm] = useState(emptyForm())
   const [imageFile, setImageFile] = useState(null)
   const [existingImageUrl, setExistingImageUrl] = useState(null)
+  const [removeImage, setRemoveImage] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState(null)
 
   useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    if (!showForm) return
+    const onKey = (e) => { if (e.key === 'Escape' && !saving) setShowForm(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showForm, saving])
 
   async function load() {
     setLoading(true)
     setError(null)
     const { data, error: e } = await supabase
       .from('accessories')
-      .select('id, category, name, image_url, purchase_price, sale_price, stock_quantity, sold_quantity, low_stock_threshold, supplier, is_deleted, phone_details(imei, condition, battery_health, internal_warranty_days, source_type, source_details)')
+      .select('id, category, name, color, image_url, purchase_price, sale_price, stock_quantity, sold_quantity, low_stock_threshold, supplier, is_deleted, phone_details(imei, condition, battery_health, internal_warranty_days, source_type, source_details)')
       .eq('is_deleted', false)
       .order('created_at', { ascending: false })
     if (e) setError(e.message)
@@ -42,11 +127,20 @@ export default function AccessoriesManagement() {
     setLoading(false)
   }
 
+  const counts = useMemo(() => ({
+    all: items.length,
+    accessory: items.filter((a) => a.category === 'accessory').length,
+    phone: items.filter((a) => a.category === 'phone').length,
+  }), [items])
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return items.filter((a) => {
       const matchesTab = tab === 'all' || a.category === tab
-      const matchesText = !q || a.name.toLowerCase().includes(q) || (a.phone_details?.[0]?.imei || '').toLowerCase().includes(q)
+      const matchesText = !q
+        || a.name.toLowerCase().includes(q)
+        || (a.color || '').toLowerCase().includes(q)
+        || (phoneOf(a)?.imei || '').toLowerCase().includes(q)
       return matchesTab && matchesText
     })
   }, [items, search, tab])
@@ -54,17 +148,16 @@ export default function AccessoriesManagement() {
   function openAdd() {
     setEditingId(null)
     setForm(emptyForm())
-    setImageFile(null)
-    setExistingImageUrl(null)
+    setImageFile(null); setExistingImageUrl(null); setRemoveImage(false)
     setFormError(null)
     setShowForm(true)
   }
 
   function openEdit(a) {
-    const pd = a.phone_details?.[0]
+    const pd = phoneOf(a)
     setEditingId(a.id)
     setForm({
-      category: a.category, name: a.name,
+      category: a.category, name: a.name, color: a.color || '',
       purchase_price: a.purchase_price, sale_price: a.sale_price,
       stock_quantity: a.stock_quantity, low_stock_threshold: a.low_stock_threshold ?? 3,
       supplier: a.supplier || '',
@@ -72,13 +165,24 @@ export default function AccessoriesManagement() {
       battery_health: pd?.battery_health ?? '', internal_warranty_days: pd?.internal_warranty_days ?? 0,
       source_type: pd?.source_type || 'supplier', source_details: pd?.source_details || '',
     })
-    setImageFile(null)
-    setExistingImageUrl(a.image_url)
+    setImageFile(null); setExistingImageUrl(a.image_url); setRemoveImage(false)
     setFormError(null)
     setShowForm(true)
   }
 
+  function pickImage(file) {
+    if (!file) return
+    if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+      setFormError(`الصورة كبيرة برشا (الحد ${MAX_IMAGE_MB} MB)`)
+      return
+    }
+    setFormError(null)
+    setImageFile(file)
+    setRemoveImage(false)
+  }
+
   async function uploadImageIfAny() {
+    if (removeImage && !imageFile) return null
     if (!imageFile) return existingImageUrl
     const path = `${Date.now()}_${imageFile.name.replace(/\s+/g, '_')}`
     const { error: upErr } = await supabase.storage.from('product-images').upload(path, imageFile)
@@ -105,6 +209,7 @@ export default function AccessoriesManagement() {
       const payload = {
         category: form.category,
         name: form.name.trim(),
+        color: form.color.trim() || null,
         purchase_price: Number(form.purchase_price),
         sale_price: Number(form.sale_price),
         stock_quantity: isPhone ? 1 : Number(form.stock_quantity || 0),
@@ -149,34 +254,49 @@ export default function AccessoriesManagement() {
     if (!window.confirm('حذف هذا المنتج؟ (يختفي من القوائم لكن يبقى في سجل المبيعات القديمة)')) return
     const { error: err } = await supabase.from('accessories').update({ is_deleted: true }).eq('id', id)
     if (err) { alert('ما نجحش: ' + err.message); return }
+    setShowForm(false)
     load()
   }
 
-  const inp = 'w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b]'
+  const inp = 'w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm bg-white focus:outline-none focus:border-[#e4211b] focus:ring-2 focus:ring-[#e4211b]/10'
+  const lbl = 'block text-sm font-semibold mb-1.5'
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
   return (
     <div>
+      {/* header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end mb-6 pb-4 border-b border-[#e5e5e5]">
         <div>
           <h1 className="text-xl font-extrabold text-[#1a1a1a] mb-1">المخزون</h1>
-          <p className="text-sm text-[#6b6b6b]">إكسسوارات وهواتف للبيع المباشر</p>
+          <p className="text-sm text-[#6b6b6b]">
+            إكسسوارات وهواتف للبيع المباشر
+            {counts.all > 0 && <span className="text-[#9a9a9a]"> · {counts.all} منتج</span>}
+          </p>
         </div>
-        <button onClick={showForm ? () => setShowForm(false) : openAdd}
-          className="w-full sm:w-auto bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg">
-          {showForm ? 'إلغاء' : '+ إضافة منتج'}
+        <button onClick={openAdd}
+          className="w-full sm:w-auto bg-[#e4211b] text-white font-semibold text-sm px-5 py-2.5 rounded-lg shadow-sm active:scale-[0.98] transition">
+          + إضافة منتج
         </button>
       </div>
 
       <LowStockAlert />
 
-      <div className="flex flex-col sm:flex-row gap-2 mb-5">
-        <input value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="فتّش بالاسم أو IMEI" className={inp + ' flex-1'} />
-        <div className="flex gap-2">
-          {[['all', 'الكل'], ['accessory', 'إكسسوارات'], ['phone', 'هواتف']].map(([v, l]) => (
+      {/* search + tabs */}
+      <div className="flex flex-col gap-3 mb-5">
+        <div className="relative">
+          <span className="absolute top-1/2 -translate-y-1/2 right-3.5 text-[#9a9a9a] pointer-events-none" aria-hidden="true">🔎</span>
+          <input value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="فتّش بالاسم أو اللون أو IMEI" className={inp + ' pr-10 pl-10'} />
+          {search && (
+            <button onClick={() => setSearch('')} aria-label="مسح البحث"
+              className="absolute top-1/2 -translate-y-1/2 left-2 w-7 h-7 rounded-full text-[#6b6b6b] hover:bg-[#f3f1ea]">✕</button>
+          )}
+        </div>
+        <div className="grid grid-cols-3 gap-1 bg-[#f3f1ea] rounded-xl p-1 sm:max-w-md">
+          {[['all', 'الكل'], ['accessory', '🛍️ إكسسوارات'], ['phone', '📱 هواتف']].map(([v, l]) => (
             <button key={v} onClick={() => setTab(v)}
-              className={`text-sm px-4 py-2 rounded-lg border whitespace-nowrap ${tab === v ? 'bg-[#e4211b] text-white border-[#e4211b]' : 'border-[#e5e5e5] text-[#6b6b6b]'}`}>
-              {l}
+              className={`text-xs sm:text-sm font-semibold py-2 rounded-lg transition-colors ${tab === v ? 'bg-white text-[#e4211b] shadow-sm' : 'text-[#6b6b6b]'}`}>
+              {l} <span className="opacity-60">· {counts[v]}</span>
             </button>
           ))}
         </div>
@@ -184,157 +304,51 @@ export default function AccessoriesManagement() {
 
       {error && <p className="bg-[#fdeaea] text-[#b3170f] text-sm rounded-lg px-4 py-3 mb-4">{error}</p>}
 
-      {showForm && (
-        <form onSubmit={submitForm} className="bg-white border border-[#e5e5e5] rounded-xl p-4 sm:p-6 mb-6 max-w-lg">
-          <h3 className="font-bold text-sm mb-4">{editingId ? 'تعديل المنتج' : 'منتج جديد'}</h3>
-
-          {!editingId && (
-            <>
-              <label className="block text-sm font-semibold mb-1.5">إكسسوار ولا هاتف؟</label>
-              <div className="flex gap-2 mb-4">
-                {[['accessory', 'إكسسوار'], ['phone', 'هاتف']].map(([v, l]) => (
-                  <button type="button" key={v} onClick={() => setForm({ ...form, category: v })}
-                    className={`flex-1 text-sm px-4 py-2.5 rounded-lg border ${form.category === v ? 'bg-[#e4211b] text-white border-[#e4211b]' : 'border-[#e5e5e5]'}`}>
-                    {l}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          <label className="block text-sm font-semibold mb-1.5">الاسم</label>
-          <input className={inp + ' mb-4'} placeholder={form.category === 'phone' ? 'مثلاً: iPhone 13 128GB أسود' : 'مثلاً: غلاف سيليكون شفاف'}
-            value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-semibold mb-1.5">سعر الشراء (د.ت)</label>
-              <input type="number" step="0.001" className={inp}
-                value={form.purchase_price} onChange={(e) => setForm({ ...form, purchase_price: e.target.value })} />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-1.5">سعر البيع (د.ت)</label>
-              <input type="number" step="0.001" className={inp}
-                value={form.sale_price} onChange={(e) => setForm({ ...form, sale_price: e.target.value })} />
-            </div>
-          </div>
-
-          {form.category === 'accessory' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-semibold mb-1.5">الكمية بالمخزون</label>
-                <input type="number" className={inp}
-                  value={form.stock_quantity} onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })} />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1.5">تنبيه عند (حد أدنى)</label>
-                <input type="number" className={inp}
-                  value={form.low_stock_threshold} onChange={(e) => setForm({ ...form, low_stock_threshold: e.target.value })} />
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="bg-[#faf9f5] rounded-lg p-3 mb-4">
-                <p className="text-xs text-[#6b6b6b] mb-3">الهاتف قطعة وحدة — الكمية دائمًا 1 (IMEI مميز)</p>
-                <label className="block text-sm font-semibold mb-1.5">IMEI</label>
-                <input className={inp + ' mb-3'} dir="ltr"
-                  value={form.imei} onChange={(e) => setForm({ ...form, imei: e.target.value })} />
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <label className="block text-xs text-[#6b6b6b] mb-1">الحالة</label>
-                    <select className={inp} value={form.condition} onChange={(e) => setForm({ ...form, condition: e.target.value })}>
-                      <option value="new">جديد</option>
-                      <option value="used">مستعمل</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-[#6b6b6b] mb-1">حالة البطارية %</label>
-                    <input type="number" min="0" max="100" className={inp}
-                      value={form.battery_health} onChange={(e) => setForm({ ...form, battery_health: e.target.value })} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <label className="block text-xs text-[#6b6b6b] mb-1">ضمان داخلي (أيام)</label>
-                    <input type="number" className={inp}
-                      value={form.internal_warranty_days} onChange={(e) => setForm({ ...form, internal_warranty_days: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-[#6b6b6b] mb-1">المصدر</label>
-                    <select className={inp} value={form.source_type} onChange={(e) => setForm({ ...form, source_type: e.target.value })}>
-                      <option value="supplier">مورّد</option>
-                      <option value="client_trade_in">شراء من حريف</option>
-                    </select>
-                  </div>
-                </div>
-                <label className="block text-xs text-[#6b6b6b] mb-1">تفاصيل إضافية عن المصدر (اختياري)</label>
-                <input className={inp}
-                  value={form.source_details} onChange={(e) => setForm({ ...form, source_details: e.target.value })} />
-              </div>
-            </>
-          )}
-
-          <label className="block text-sm font-semibold mb-1.5">المورّد (اختياري)</label>
-          <input className={inp + ' mb-4'} value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
-
-          <label className="block text-sm font-semibold mb-1.5">صورة المنتج (اختياري)</label>
-          <input type="file" accept="image/*" className="text-sm mb-4"
-            onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
-          {existingImageUrl && !imageFile && (
-            <img src={existingImageUrl} alt="" className="w-20 h-20 object-cover rounded-lg mb-4 border border-[#e5e5e5]" />
-          )}
-
-          {formError && <p className="text-[#b3170f] text-sm mb-3">{formError}</p>}
-          <div className="flex gap-2">
-            <button disabled={saving} className="bg-[#e4211b] text-white font-semibold text-sm px-5 py-2.5 rounded-lg disabled:opacity-60">
-              {saving ? '...' : 'حفظ'}
-            </button>
-            {editingId && (
-              <button type="button" onClick={() => { softDelete(editingId); setShowForm(false) }}
-                className="text-[#b3170f] text-sm px-4 py-2.5">
-                حذف
-              </button>
-            )}
-          </div>
-        </form>
-      )}
-
+      {/* list */}
       {loading ? (
-        <div className="bg-white border border-[#e5e5e5] rounded-xl"><p className="p-6 text-sm text-[#6b6b6b]">جاري التحميل...</p></div>
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-2xl bg-[#f3f1ea] animate-pulse" />)}
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white border border-[#e5e5e5] rounded-xl"><p className="p-6 text-sm text-[#6b6b6b]">ما فماش منتجات</p></div>
+        <div className="bg-white border border-dashed border-[#d8d8d0] rounded-2xl p-10 text-center">
+          <p className="text-3xl mb-2">📦</p>
+          <p className="text-sm text-[#6b6b6b]">{items.length === 0 ? 'ما فماش منتجات بعد.' : 'ما فماش نتائج لهذا البحث.'}</p>
+        </div>
       ) : (
         <>
-          {/* phone: cards */}
+          {/* phone + tablet: cards */}
           <div className="lg:hidden flex flex-col gap-3">
             {filtered.map((a) => (
-              <div key={a.id} className="bg-white border border-[#e5e5e5] rounded-xl p-4 flex gap-3">
-                {a.image_url ? (
-                  <img src={a.image_url} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" />
-                ) : (
-                  <div className="w-16 h-16 rounded-lg bg-[#faf9f5] shrink-0 flex items-center justify-center text-xl">
-                    {a.category === 'phone' ? '📱' : '🛍️'}
+              <div key={a.id} className="bg-white border border-[#e5e5e5] rounded-2xl p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                <div className="flex gap-3">
+                  <Thumb a={a} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-[#1a1a1a] text-sm break-words">{a.name}</p>
+                    <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1">
+                      <TypePill category={a.category} />
+                      <ColorDot label={a.color} />
+                    </div>
+                    {phoneOf(a)?.imei && (
+                      <p className="text-[11px] text-[#9a9a9a] mt-1" dir="ltr">IMEI: {phoneOf(a).imei}</p>
+                    )}
+                    <PhoneInfo item={a} full className="mt-1.5" />
                   </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-[#1a1a1a] text-sm">{a.name}</p>
-                  {a.phone_details?.[0]?.imei && (
-                    <p className="text-[10px] text-[#6b6b6b]" dir="ltr">IMEI: {a.phone_details[0].imei}</p>
-                  )}
-                  <div className="flex justify-between items-center mt-2">
-                    <span className={`text-xs font-semibold ${a.stock_quantity <= 0 ? 'text-[#b3170f]' : 'text-[#6b6b6b]'}`}>
-                      متوفر: {a.stock_quantity}
+                </div>
+                <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-[#f0f0ea]">
+                  <div className="flex items-center gap-2">
+                    <StockBadge a={a} />
+                    <span className="font-extrabold text-[#1f8a4c] text-sm bg-[#e8f6ee] rounded-lg px-2.5 py-1 whitespace-nowrap">
+                      {Number(a.sale_price).toFixed(2)} د.ت
                     </span>
-                    <span className="font-bold text-[#1f8a4c] text-sm">{Number(a.sale_price).toFixed(2)} د.ت</span>
                   </div>
-                  <button onClick={() => openEdit(a)} className="text-[10px] text-[#6b6b6b] hover:text-[#e4211b] mt-1">تعديل</button>
+                  <EditButton onClick={() => openEdit(a)} />
                 </div>
               </div>
             ))}
           </div>
 
           {/* desktop: table */}
-          <div className="hidden lg:block bg-white border border-[#e5e5e5] rounded-xl overflow-hidden">
+          <div className="hidden lg:block bg-white border border-[#e5e5e5] rounded-2xl overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold">
@@ -349,40 +363,179 @@ export default function AccessoriesManagement() {
               <tbody>
                 {filtered.map((a) => (
                   <tr key={a.id} className="hover:bg-[#fbfaf6]">
-                    <td className="px-5 py-3.5 border-b border-[#ececE4]">
+                    <td className="px-5 py-3.5 border-b border-[#f0f0ea]">
                       <div className="flex items-center gap-3">
-                        {a.image_url ? (
-                          <img src={a.image_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg bg-[#faf9f5] flex items-center justify-center">
-                            {a.category === 'phone' ? '📱' : '🛍️'}
+                        <Thumb a={a} size="w-11 h-11" />
+                        <div className="min-w-0">
+                          <p className="font-bold">{a.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <ColorDot label={a.color} />
+                            {phoneOf(a)?.imei && (
+                              <span className="text-[11px] text-[#9a9a9a]" dir="ltr">IMEI: {phoneOf(a).imei}</span>
+                            )}
                           </div>
-                        )}
-                        <div>
-                          <p className="font-semibold">{a.name}</p>
-                          {a.phone_details?.[0]?.imei && (
-                            <p className="text-[10px] text-[#6b6b6b]" dir="ltr">IMEI: {a.phone_details[0].imei}</p>
-                          )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 border-b border-[#ececE4] text-xs text-[#6b6b6b]">
-                      {a.category === 'phone' ? 'هاتف' : 'إكسسوار'}
-                    </td>
-                    <td className={`px-5 py-3.5 border-b border-[#ececE4] font-semibold ${a.stock_quantity <= 0 ? 'text-[#b3170f]' : ''}`}>
-                      {a.stock_quantity}
-                    </td>
-                    <td className="px-5 py-3.5 border-b border-[#ececE4] font-bold text-[#1f8a4c]">{Number(a.sale_price).toFixed(2)} د.ت</td>
-                    <td className="px-5 py-3.5 border-b border-[#ececE4] text-xs text-[#6b6b6b]">{a.supplier || '—'}</td>
-                    <td className="px-5 py-3.5 border-b border-[#ececE4]">
-                      <button onClick={() => openEdit(a)} className="text-xs text-[#6b6b6b] hover:text-[#e4211b]">تعديل</button>
-                    </td>
+                    <td className="px-5 py-3.5 border-b border-[#f0f0ea]"><TypePill category={a.category} /></td>
+                    <td className="px-5 py-3.5 border-b border-[#f0f0ea]"><StockBadge a={a} /></td>
+                    <td className="px-5 py-3.5 border-b border-[#f0f0ea] font-extrabold text-[#1f8a4c]">{Number(a.sale_price).toFixed(2)} د.ت</td>
+                    <td className="px-5 py-3.5 border-b border-[#f0f0ea] text-xs text-[#6b6b6b]">{a.supplier || '—'}</td>
+                    <td className="px-5 py-3.5 border-b border-[#f0f0ea] text-left"><EditButton onClick={() => openEdit(a)} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </>
+      )}
+
+      {/* add / edit — bottom sheet on phone, centered dialog on desktop */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
+          onClick={(e) => { if (e.target === e.currentTarget && !saving) setShowForm(false) }}>
+          <form onSubmit={submitForm}
+            className="bg-white w-full sm:max-w-lg max-h-[94vh] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-xl">
+            {/* sticky title */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#e5e5e5] shrink-0">
+              <h3 className="font-extrabold text-base">{editingId ? '✏️ تعديل المنتج' : 'منتج جديد'}</h3>
+              <button type="button" onClick={() => setShowForm(false)} aria-label="إغلاق"
+                className="w-8 h-8 rounded-full text-[#6b6b6b] hover:bg-[#f3f1ea]">✕</button>
+            </div>
+
+            {/* scrolling body */}
+            <div className="overflow-y-auto px-5 py-4">
+              {!editingId && (
+                <>
+                  <label className={lbl}>إكسسوار ولا هاتف؟</label>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    {[['accessory', '🛍️ إكسسوار'], ['phone', '📱 هاتف']].map(([v, l]) => (
+                      <button type="button" key={v} onClick={() => setForm({ ...form, category: v })}
+                        className={`text-sm font-semibold py-2.5 rounded-lg border transition-colors ${form.category === v ? 'bg-[#e4211b] text-white border-[#e4211b]' : 'border-[#e5e5e5] text-[#6b6b6b]'}`}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <label className={lbl}>الاسم</label>
+              <input className={inp + ' mb-4'}
+                placeholder={form.category === 'phone' ? 'مثلاً: iPhone 13 128GB' : 'مثلاً: غلاف سيليكون شفاف'}
+                value={form.name} onChange={set('name')} />
+
+              {/* color */}
+              <label className={lbl}>اللون (اختياري)</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {COLORS.map(([n, hex]) => (
+                  <button type="button" key={n} onClick={() => setForm({ ...form, color: form.color === n ? '' : n })}
+                    className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 min-h-[36px] rounded-full border transition-colors ${form.color === n ? 'border-[#e4211b] bg-[#fdeaea] text-[#e4211b]' : 'border-[#e5e5e5] text-[#6b6b6b] hover:border-[#bdbdb5]'}`}>
+                    <span className="w-4 h-4 rounded-full border border-black/15" style={{ background: hex }} aria-hidden="true" />
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <input className={inp + ' mb-4'} placeholder="أو اكتب لون آخر (مثلاً: أزرق ليلي)"
+                value={form.color} onChange={set('color')} />
+
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <label className={lbl}>سعر الشراء (د.ت)</label>
+                  <input type="number" step="0.001" inputMode="decimal" className={inp}
+                    value={form.purchase_price} onChange={set('purchase_price')} />
+                </div>
+                <div>
+                  <label className={lbl}>سعر البيع (د.ت)</label>
+                  <input type="number" step="0.001" inputMode="decimal" className={inp}
+                    value={form.sale_price} onChange={set('sale_price')} />
+                </div>
+              </div>
+
+              {form.category === 'accessory' ? (
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div>
+                    <label className={lbl}>الكمية بالمخزون</label>
+                    <input type="number" inputMode="numeric" className={inp}
+                      value={form.stock_quantity} onChange={set('stock_quantity')} />
+                  </div>
+                  <div>
+                    <label className={lbl}>تنبيه عند (حد أدنى)</label>
+                    <input type="number" inputMode="numeric" className={inp}
+                      value={form.low_stock_threshold} onChange={set('low_stock_threshold')} />
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-[#faf9f5] border border-[#eeece4] rounded-xl p-3.5 mb-4">
+                  <p className="text-xs text-[#6b6b6b] mb-3">📱 الهاتف قطعة وحدة — الكمية دائمًا 1 (IMEI مميز)</p>
+                  <label className={lbl}>IMEI</label>
+                  <input className={inp + ' mb-3'} dir="ltr" inputMode="numeric" value={form.imei} onChange={set('imei')} />
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs text-[#6b6b6b] mb-1">الحالة</label>
+                      <select className={inp} value={form.condition} onChange={set('condition')}>
+                        <option value="new">جديد</option>
+                        <option value="used">مستعمل</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#6b6b6b] mb-1">حالة البطارية %</label>
+                      <input type="number" min="0" max="100" inputMode="numeric" className={inp}
+                        value={form.battery_health} onChange={set('battery_health')} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs text-[#6b6b6b] mb-1">ضمان داخلي (أيام)</label>
+                      <input type="number" inputMode="numeric" className={inp}
+                        value={form.internal_warranty_days} onChange={set('internal_warranty_days')} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#6b6b6b] mb-1">المصدر</label>
+                      <select className={inp} value={form.source_type} onChange={set('source_type')}>
+                        <option value="supplier">مورّد</option>
+                        <option value="client_trade_in">شراء من حريف</option>
+                      </select>
+                    </div>
+                  </div>
+                  <label className="block text-xs text-[#6b6b6b] mb-1">تفاصيل إضافية عن المصدر (اختياري)</label>
+                  <input className={inp} value={form.source_details} onChange={set('source_details')} />
+                </div>
+              )}
+
+              <label className={lbl}>المورّد (اختياري)</label>
+              <input className={inp + ' mb-4'} value={form.supplier} onChange={set('supplier')} />
+
+              <label className={lbl}>صورة المنتج (اختياري)</label>
+              <ImagePicker
+                file={imageFile}
+                existingUrl={removeImage ? null : existingImageUrl}
+                onPick={pickImage}
+                onRemove={() => { setImageFile(null); setRemoveImage(true) }}
+              />
+            </div>
+
+            {/* sticky footer: always reachable, even on a small phone */}
+            <div className="shrink-0 border-t border-[#e5e5e5] px-5 py-3 bg-white rounded-b-2xl">
+              {formError && <p className="bg-[#fdeaea] text-[#b3170f] text-sm rounded-lg px-3 py-2 mb-3">{formError}</p>}
+              <div className="flex items-center gap-2">
+                <button disabled={saving}
+                  className="flex-1 bg-[#e4211b] text-white font-semibold text-sm px-5 py-3 rounded-lg disabled:opacity-60">
+                  {saving ? 'جاري الحفظ...' : 'حفظ'}
+                </button>
+                <button type="button" onClick={() => setShowForm(false)} disabled={saving}
+                  className="px-5 py-3 text-sm font-semibold rounded-lg border border-[#e5e5e5] text-[#6b6b6b]">
+                  إلغاء
+                </button>
+                {editingId && (
+                  <button type="button" onClick={() => softDelete(editingId)}
+                    className="px-3 py-3 text-sm font-semibold rounded-lg text-[#b3170f] hover:bg-[#fdeaea]" aria-label="حذف المنتج">
+                    🗑
+                  </button>
+                )}
+              </div>
+            </div>
+          </form>
+        </div>
       )}
     </div>
   )

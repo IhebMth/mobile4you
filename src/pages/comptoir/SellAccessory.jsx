@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import LowStockAlert from '../shared/LowStockAlert'
+import ColorDot from '../shared/ColorDot'
+import PhoneInfo from '../shared/PhoneInfo'
+import { phoneOf } from '../../lib/phoneDetails'
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'نقدًا' },
@@ -31,7 +34,7 @@ export default function SellAccessory() {
     setError(null)
     const { data, error: e } = await supabase
       .from('accessories')
-      .select('id, category, name, image_url, sale_price, stock_quantity')
+      .select('id, category, name, color, image_url, sale_price, stock_quantity, phone_details(imei, condition, battery_health, internal_warranty_days)')
       .eq('is_deleted', false)
       .gt('stock_quantity', 0)
       .order('name', { ascending: true })
@@ -44,7 +47,7 @@ export default function SellAccessory() {
     const q = search.trim().toLowerCase()
     return items.filter((a) => {
       const matchesTab = tab === 'all' || a.category === tab
-      const matchesText = !q || a.name.toLowerCase().includes(q)
+      const matchesText = !q || a.name.toLowerCase().includes(q) || (a.color || '').toLowerCase().includes(q) || (phoneOf(a)?.imei || '').toLowerCase().includes(q)
       return matchesTab && matchesText
     })
   }, [items, search, tab])
@@ -117,7 +120,7 @@ export default function SellAccessory() {
 
       <div className="flex flex-col sm:flex-row gap-2 mb-5">
         <input value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="فتّش عن منتج" className={inp + ' flex-1'} />
+          placeholder="فتّش بالاسم أو اللون أو IMEI" className={inp + ' flex-1'} />
         <div className="flex gap-2">
           {[['all', 'الكل'], ['accessory', 'إكسسوارات'], ['phone', 'هواتف']].map(([v, l]) => (
             <button key={v} onClick={() => setTab(v)}
@@ -145,6 +148,8 @@ export default function SellAccessory() {
                 </div>
               )}
               <p className="text-xs font-semibold text-[#1a1a1a] line-clamp-2">{a.name}</p>
+              <ColorDot label={a.color} className="mt-0.5 !text-[11px]" />
+              <PhoneInfo item={a} className="mt-1" />
               <div className="flex justify-between items-center mt-1.5">
                 <span className="text-[10px] text-[#6b6b6b]">متوفر: {a.stock_quantity}</span>
                 <span className="text-xs font-bold text-[#1f8a4c]">{Number(a.sale_price).toFixed(2)} د.ت</span>
@@ -158,6 +163,8 @@ export default function SellAccessory() {
         <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50" onClick={closeSell}>
           <div className="bg-white rounded-t-xl sm:rounded-xl p-5 sm:p-6 w-full sm:max-w-md" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-bold text-[#1a1a1a] mb-1">{selected.name}</h3>
+            <ColorDot label={selected.color} className="mb-1" />
+            <PhoneInfo item={selected} full className="mb-3" />
             <p className="text-sm text-[#6b6b6b] mb-4">{Number(selected.sale_price).toFixed(2)} د.ت / واحدة — متوفر {selected.stock_quantity}</p>
 
             {selected.category === 'accessory' && (

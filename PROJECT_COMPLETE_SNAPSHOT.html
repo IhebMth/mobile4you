@@ -10,8 +10,8 @@ nav a{margin-right:14px;font-size:14px;color:#b3170f}
 @media(prefers-color-scheme:dark){body{background:#151515;color:#e8e8e8}code,th{background:#262626}td,th{border-color:#333}.box{background:#2a2218;border-color:#4a3a20}}
 .tag{background:#fdecd8;color:#8a4f06;font-size:11px;padding:2px 6px;border-radius:5px;font-weight:700;margin-right:6px}</style></head><body>
 <h1>PROJECT COMPLETE — Phase 1 + Phase 2 + fixes + mobile redesign</h1>
-<p class="sub">Mobile 4 You · smart-repair-shop · Last updated: 29/09/2026 · Replaces PROJECT_SNAPSHOT and PHASE2_COMPLETE_SNAPSHOT — this is the only file you need going forward.</p>
-<nav><a href="#s0">Read first</a><a href="#s1">Phase1 SQL</a><a href="#s2">Phase1 code</a><a href="#s3">Phase2 SQL</a><a href="#s4">Phase2 code</a><a href="#s5">GitHub+Vercel</a><a href="#s6">Mobile</a><a href="#s7">Tests</a><a href="#s8">Limits</a></nav>
+<p class="sub">Mobile 4 You · smart-repair-shop · Last updated: 02/10/2026 · Replaces PROJECT_SNAPSHOT and PHASE2_COMPLETE_SNAPSHOT — this is the only file you need going forward.</p>
+<nav><a href="#s0">Read first</a><a href="#s1">Phase1 SQL</a><a href="#s2">Phase1 code</a><a href="#s3">Phase2 SQL</a><a href="#s4">Phase2 code</a><a href="#s5">GitHub+Vercel</a><a href="#s6">Mobile</a><a href="#s7">Tests</a><a href="#s8">Limits</a><a href="#s10">Price guide</a><a href="#s11">Phase 3</a><a href="#s8">Next: QR</a></nav>
 <h2 id="s0">0. Read first — what this file is</h2>
 <p>One file, the whole project as it stands today: Phase 1 (setup), Phase 2 (Caisse, expenses, void requests, debts &amp; loans), every fix made after Phase 2 was tested, and the mobile-responsive redesign. Build order:</p>
 <ol><li><b>Phase 1 SQL</b> (section 1) — only if the database is empty. If you already ran it, skip to Phase 2.</li>
@@ -19,6 +19,7 @@ nav a{margin-right:14px;font-size:14px;color:#b3170f}
 <li><b>Phase 2 SQL A → I</b> (section 3), one script per query, in order.</li>
 <li><b>Phase 2 + fixes code</b> (section 4) — replace files with the FINAL version here even if you already have an older copy; several were patched after testing (see the list below).</li>
 <li><b>GitHub + Vercel</b> (section 5), <b>mobile redesign</b> (section 6, already merged into the files in section 4), then the <b>test checklist</b> (section 7).</li></ol>
+<div class="box"><b>How this file stays up to date:</b> there is only ever one copy of each file, sitting in the section where it was first introduced. When a file changes later, that section is edited in place — the old version is replaced, not kept alongside a separate "patch" or duplicate elsewhere in the document. So the version you see in its section is always the current one; nothing extra to merge by hand.</div>
 <div class="box"><b>Fixed after the first Phase 2 pass — use these versions, not older ones:</b><ul>
 <li><code>ComptoirDashboard.jsx</code> — <code>useEffect</code> moved below the functions it calls (was crashing with "cannot access before initialization"); added the status dropdown (ready / delivered / cancelled) with delivery blocked until the price is confirmed; added the unpaid-delivery button.</li>
 <li><code>Caisse.jsx</code>, <code>DailyReport.jsx</code> — the <code>profiles(full_name)</code> join was ambiguous after Script G added <code>voided_by</code> (two links to <code>profiles</code>); fixed to <code>profiles!cash_transactions_performed_by_fkey(full_name)</code>.</li>
@@ -165,6 +166,7 @@ create trigger trg_visit_on_accessory_sale
   sold_quantity integer not null default 0,
   low_stock_threshold integer default 3,
   supplier text,
+  color text,                       -- product color (added with the inventory redesign)
   is_deleted boolean default false,
   created_at timestamp with time zone default now()
 );
@@ -441,7 +443,7 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   return useContext(AuthContext)
-}</pre></div><h3>src/components/layout/ProtectedLayout.jsx <span class="tag">→ REPLACED in section 4, see below</span></h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { Navigate, Outlet } from &#x27;react-router-dom&#x27;
+}</pre></div><h3>src/components/layout/ProtectedLayout.jsx <span class="tag">→ final version is in section 4</span></h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { Navigate, Outlet } from &#x27;react-router-dom&#x27;
 import { useAuth } from &#x27;../../context/AuthContext&#x27;
 import Sidebar from &#x27;./Sidebar&#x27;
 
@@ -470,7 +472,7 @@ export default function ProtectedRoute({ allowedRoles }) {
       &lt;/main&gt;
     &lt;/div&gt;
   )
-}</pre></div><h3>src/components/layout/Sidebar.jsx <span class="tag">→ REPLACED in section 4, see below</span></h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { NavLink, useNavigate } from &#x27;react-router-dom&#x27;
+}</pre></div><h3>src/components/layout/Sidebar.jsx <span class="tag">→ final version is in section 4</span></h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { NavLink, useNavigate } from &#x27;react-router-dom&#x27;
 import { useAuth } from &#x27;../../context/AuthContext&#x27;
 import logo from &#x27;../../assets/logo.png&#x27;
 
@@ -560,7 +562,7 @@ export default function StatusBadge({ status }) {
       {s.label}
     &lt;/span&gt;
   )
-}</pre></div><h3>src/pages/Login.jsx محدّث اليوم</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useState } from &#x27;react&#x27;
+}</pre></div><h3>src/pages/Login.jsx</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useState } from &#x27;react&#x27;
 import { useNavigate } from &#x27;react-router-dom&#x27;
 import { supabase } from &#x27;../lib/supabaseClient&#x27;
 import logo from &#x27;../assets/logo.png&#x27;
@@ -675,7 +677,7 @@ export default function Login() {
       &lt;/form&gt;
     &lt;/div&gt;
   )
-}</pre></div><h3>src/pages/comptoir/ComptoirDashboard.jsx محدّث اليوم <span class="tag">→ REPLACED in section 4, see below</span></h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
+}</pre></div><h3>src/pages/comptoir/ComptoirDashboard.jsx <span class="tag">→ final version is in section 4</span></h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
 import { Link } from &#x27;react-router-dom&#x27;
 import { supabase } from &#x27;../../lib/supabaseClient&#x27;
 import StatusBadge from &#x27;../../components/ui/StatusBadge&#x27;
@@ -961,7 +963,7 @@ export default function ComptoirDashboard() {
       )}
     &lt;/div&gt;
   )
-}</pre></div><h3>src/pages/comptoir/NewRepairOrder.jsx محدّث اليوم</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useState, useEffect } from &#x27;react&#x27;
+}</pre></div><h3>src/pages/comptoir/NewRepairOrder.jsx</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useState, useEffect } from &#x27;react&#x27;
 import { useNavigate } from &#x27;react-router-dom&#x27;
 import { supabase } from &#x27;../../lib/supabaseClient&#x27;
 import { useAuth } from &#x27;../../context/AuthContext&#x27;
@@ -1125,7 +1127,7 @@ export default function NewRepairOrder() {
       &lt;/form&gt;
     &lt;/div&gt;
   )
-}</pre></div><h3>src/pages/technicien/TechnicienDashboard.jsx <span class="tag">→ REPLACED in section 4, see below</span></h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
+}</pre></div><h3>src/pages/technicien/TechnicienDashboard.jsx <span class="tag">→ final version is in section 4</span></h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
 import { Link } from &#x27;react-router-dom&#x27;
 import { supabase } from &#x27;../../lib/supabaseClient&#x27;
 import { useAuth } from &#x27;../../context/AuthContext&#x27;
@@ -1196,7 +1198,7 @@ export default function TechnicienDashboard() {
       &lt;/div&gt;
     &lt;/div&gt;
   )
-}</pre></div><h3>src/pages/technicien/RepairDetails.jsx محدّث اليوم</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
+}</pre></div><h3>src/pages/technicien/RepairDetails.jsx</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
 import { useParams } from &#x27;react-router-dom&#x27;
 import { supabase } from &#x27;../../lib/supabaseClient&#x27;
 
@@ -2259,7 +2261,7 @@ select count(*) from cash_transactions where is_void and void_reason is null;
 -- 5) Caisse must equal the physical drawer: income minus expenses, void rows excluded
 select sum(case when type in (&#x27;repair_income&#x27;,&#x27;accessory_sale&#x27;,&#x27;debt_collection&#x27;,&#x27;loan_return&#x27;) then amount else -amount end) as drawer_should_hold
 from cash_transactions where not is_void;
-</pre></div><h2 id="s4">4. Phase 2 + fixes — final application code</h2><h3>src/routes/AppRoutes.jsx — UPDATED (Phase 2 routes)</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { BrowserRouter, Routes, Route, Navigate } from &#x27;react-router-dom&#x27;
+</pre></div><h2 id="s4">4. Phase 2 + fixes — final application code</h2><h3>src/routes/AppRoutes.jsx</h3> <span class="tag">includes price guide route</span><p class="n">Full file — every route already merged in. <b>/price-guide is registered once</b>, in its own wrapper listing all three roles (admin, comptoir, technicien). Never repeat the same path inside each role wrapper: React Router picks the first match, and a role missing from that wrapper gets bounced to /unauthorized.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { BrowserRouter, Routes, Route, Navigate } from &#x27;react-router-dom&#x27;
 import { AuthProvider } from &#x27;../context/AuthContext&#x27;
 import ProtectedRoute from &#x27;../components/layout/ProtectedLayout&#x27;
 
@@ -2286,6 +2288,7 @@ import DailyReport from &#x27;../pages/admin/DailyReport&#x27;
 import Caisse from &#x27;../pages/caisse/Caisse&#x27;
 import Debts from &#x27;../pages/shared/Debts&#x27;
 import VoidRequests from &#x27;../pages/admin/VoidRequests&#x27;
+import PriceGuide from &#x27;../pages/shared/PriceGuide&#x27;
 
 export default function AppRoutes() {
   return (
@@ -2295,6 +2298,13 @@ export default function AppRoutes() {
           &lt;Route path=&quot;/&quot; element={&lt;Navigate to=&quot;/login&quot; replace /&gt;} /&gt;
           &lt;Route path=&quot;/login&quot; element={&lt;Login /&gt;} /&gt;
           &lt;Route path=&quot;/track/:access_token&quot; element={&lt;TrackOrder /&gt;} /&gt;
+
+          {/* Shared by all three roles — registered ONCE.
+              (Registering the same path inside each role wrapper makes React Router
+              match the first wrapper only, and a role not in it is sent to /unauthorized.) */}
+          &lt;Route element={&lt;ProtectedRoute allowedRoles={[&#x27;admin&#x27;, &#x27;comptoir&#x27;, &#x27;technicien&#x27;]} /&gt;}&gt;
+            &lt;Route path=&quot;/price-guide&quot; element={&lt;PriceGuide /&gt;} /&gt;
+          &lt;/Route&gt;
 
           {/* Comptoir + Admin */}
           &lt;Route element={&lt;ProtectedRoute allowedRoles={[&#x27;admin&#x27;, &#x27;comptoir&#x27;]} /&gt;}&gt;
@@ -2338,7 +2348,8 @@ export default function AppRoutes() {
     &lt;/BrowserRouter&gt;
   )
 }
-</pre></div><h3>src/components/layout/Sidebar.jsx — FINAL (mobile drawer)</h3><p class=n>Replace together with ProtectedLayout.jsx below — they only work as a pair.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { NavLink, useNavigate } from &#x27;react-router-dom&#x27;
+</pre></div>
+<h3>src/components/layout/Sidebar.jsx</h3><p class=n>Replace together with ProtectedLayout.jsx below — they only work as a pair.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { NavLink, useNavigate } from &#x27;react-router-dom&#x27;
 import { useAuth } from &#x27;../../context/AuthContext&#x27;
 import logo from &#x27;../../assets/logo.png&#x27;
 
@@ -2454,7 +2465,7 @@ export default function Sidebar({ open = false, onClose = () =&gt; {} }) {
     &lt;/&gt;
   )
 }
-</pre></div><h3>src/components/layout/ProtectedLayout.jsx — FINAL (mobile top bar + ☰)</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { Navigate, Outlet } from &#x27;react-router-dom&#x27;
+</pre></div><h3>src/components/layout/ProtectedLayout.jsx</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { Navigate, Outlet } from &#x27;react-router-dom&#x27;
 import { useState } from &#x27;react&#x27;
 import { useAuth } from &#x27;../../context/AuthContext&#x27;
 import Sidebar from &#x27;./Sidebar&#x27;
@@ -3061,7 +3072,7 @@ export default function ExpensesApproval() {
     &lt;/div&gt;
   )
 }
-</pre></div><h3>src/pages/caisse/Caisse.jsx — FINAL (fkey fix + mobile cards)</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
+</pre></div><h3>src/pages/caisse/Caisse.jsx</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
 import { supabase } from &#x27;../../lib/supabaseClient&#x27;
 import VoidRequestButton from &#x27;../shared/VoidRequestButton&#x27;
 
@@ -3265,7 +3276,7 @@ export default function Caisse() {
     &lt;/div&gt;
   )
 }
-</pre></div><h3>src/pages/admin/DailyReport.jsx — FINAL (fkey fix)</h3><p class=n>Still a wide table on mobile — not converted to cards yet, see section 8.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
+</pre></div><h3>src/pages/admin/DailyReport.jsx</h3><p class=n>Still a wide table on mobile — not converted to cards yet, see section 8.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
 import { supabase } from &#x27;../../lib/supabaseClient&#x27;
 
 // Every income/expense source is declared ONCE here.
@@ -3648,7 +3659,7 @@ export default function VoidRequests() {
     &lt;/div&gt;
   )
 }
-</pre></div><h3>src/pages/shared/Debts.jsx — FINAL (mobile cards)</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
+</pre></div><h3>src/pages/shared/Debts.jsx</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
 import { supabase } from &#x27;../../lib/supabaseClient&#x27;
 import { useAuth } from &#x27;../../context/AuthContext&#x27;
 
@@ -3957,7 +3968,7 @@ export default function UnpaidDeliveryButton({ order, onDone }) {
     &lt;/button&gt;
   )
 }
-</pre></div><h3>src/pages/comptoir/ComptoirDashboard.jsx — FINAL</h3><p class=n>Status dropdown (delivery blocked without a confirmed price), unpaid-delivery button, useEffect ordering fixed.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
+</pre></div><h3>src/pages/comptoir/ComptoirDashboard.jsx</h3><p class="n">Status dropdown (delivery blocked without a confirmed price), unpaid-delivery button, search box + sort (newest/oldest, price high/low), useEffect ordering fixed.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useMemo, useState } from &#x27;react&#x27;
 import { Link } from &#x27;react-router-dom&#x27;
 import { supabase } from &#x27;../../lib/supabaseClient&#x27;
 import StatusBadge from &#x27;../../components/ui/StatusBadge&#x27;
@@ -3973,11 +3984,20 @@ const STATUS_OPTIONS = [
   { value: &#x27;cancelled&#x27;, label: &#x27;ملغى&#x27; },
 ]
 
+const SORT_OPTIONS = [
+  { value: &#x27;date_desc&#x27;, label: &#x27;الأحدث أولًا&#x27; },
+  { value: &#x27;date_asc&#x27;, label: &#x27;الأقدم أولًا&#x27; },
+  { value: &#x27;price_desc&#x27;, label: &#x27;السعر: من الأعلى&#x27; },
+  { value: &#x27;price_asc&#x27;, label: &#x27;السعر: من الأدنى&#x27; },
+]
+
 export default function ComptoirDashboard() {
   const { user } = useAuth()
   const [orders, setOrders] = useState([])
   const [technicians, setTechnicians] = useState([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState(&#x27;&#x27;)
+  const [sortBy, setSortBy] = useState(&#x27;date_desc&#x27;)
 
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [form, setForm] = useState(null)
@@ -4014,6 +4034,33 @@ export default function ComptoirDashboard() {
     loadTechnicians()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Search box matches order number, client name, phone, or device model —
+  // all client-side against the 50 most recent orders already loaded.
+  // Sort re-orders that same filtered list; nothing re-fetches from the server.
+  const visibleOrders = useMemo(() =&gt; {
+    const q = search.trim().toLowerCase()
+    let list = !q
+      ? orders
+      : orders.filter((o) =&gt; {
+          const hay = [
+            o.order_number, o.device_model,
+            o.clients?.full_name, o.clients?.phone,
+          ].join(&#x27; &#x27;).toLowerCase()
+          return hay.includes(q)
+        })
+
+    list = [...list].sort((a, b) =&gt; {
+      if (sortBy === &#x27;date_desc&#x27;) return new Date(b.created_at) - new Date(a.created_at)
+      if (sortBy === &#x27;date_asc&#x27;) return new Date(a.created_at) - new Date(b.created_at)
+      const pa = a.final_price ?? -1
+      const pb = b.final_price ?? -1
+      if (sortBy === &#x27;price_desc&#x27;) return pb - pa
+      if (sortBy === &#x27;price_asc&#x27;) return pa - pb
+      return 0
+    })
+    return list
+  }, [orders, search, sortBy])
 
   function openModal(order) {
     setSelectedOrder(order)
@@ -4151,73 +4198,136 @@ export default function ComptoirDashboard() {
     closeModal()
   }
 
+  const inp = &#x27;px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b]&#x27;
+
   return (
     &lt;div&gt;
-      &lt;div className=&quot;flex justify-between items-end mb-6 pb-4 border-b border-[#e5e5e5]&quot;&gt;
+      &lt;div className=&quot;flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end mb-6 pb-4 border-b border-[#e5e5e5]&quot;&gt;
         &lt;div&gt;
           &lt;h1 className=&quot;text-xl font-extrabold text-[#1a1a1a] mb-1&quot;&gt;لوحة الاستقبال&lt;/h1&gt;
           &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;كل عمليات الصيانة الحالية والسابقة&lt;/p&gt;
         &lt;/div&gt;
         &lt;Link to=&quot;/comptoir/new-order&quot;&gt;
-          &lt;button className=&quot;bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90&quot;&gt;
+          &lt;button className=&quot;w-full sm:w-auto bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90&quot;&gt;
             + استقبال جهاز جديد
           &lt;/button&gt;
         &lt;/Link&gt;
       &lt;/div&gt;
 
-      &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl overflow-hidden&quot;&gt;
-        {loading ? (
-          &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;جاري التحميل...&lt;/p&gt;
-        ) : orders.length === 0 ? (
-          &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;ما فماش طلبات بعد&lt;/p&gt;
-        ) : (
-          &lt;table className=&quot;w-full text-sm&quot;&gt;
-            &lt;thead&gt;
-              &lt;tr className=&quot;bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold&quot;&gt;
-                &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;رقم الطلب&lt;/th&gt;
-                &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;الحريف&lt;/th&gt;
-                &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;الجهاز&lt;/th&gt;
-                &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;الحالة&lt;/th&gt;
-                &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;السعر&lt;/th&gt;
-                &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;التاريخ&lt;/th&gt;
-              &lt;/tr&gt;
-            &lt;/thead&gt;
-            &lt;tbody&gt;
-              {orders.map((o) =&gt; (
-                &lt;tr key={o.id} onClick={() =&gt; openModal(o)} className=&quot;hover:bg-[#fbfaf6] cursor-pointer&quot;&gt;
-                  &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] font-bold text-[#b3170f]&quot; dir=&quot;ltr&quot; style={{ textAlign: &#x27;right&#x27; }}&gt;
-                    {o.order_number}
-                  &lt;/td&gt;
-                  &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;
-                    {o.clients?.full_name}
-                    &lt;div className=&quot;text-xs text-[#6b6b6b]&quot;&gt;{o.clients?.phone}&lt;/div&gt;
-                  &lt;/td&gt;
-                  &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;{o.device_model}&lt;/td&gt;
-                  &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;
-                    &lt;StatusBadge status={o.status} /&gt;
-                  &lt;/td&gt;
-                  &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;
-                    {o.final_price ? (
-                      &lt;span className={o.price_confirmed ? &#x27;text-green-700&#x27; : &#x27;text-[#b3170f] font-semibold&#x27;}&gt;
-                        {o.final_price} د.ت {!o.price_confirmed &amp;&amp; &#x27;(غير مؤكد)&#x27;}
-                      &lt;/span&gt;
-                    ) : (
-                      &lt;span className=&quot;text-xs text-[#6b6b6b]&quot;&gt;لا يوجد بعد&lt;/span&gt;
-                    )}
-                  &lt;/td&gt;
-                  &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] text-xs text-[#6b6b6b]&quot;&gt;
-                    {new Date(o.created_at).toLocaleDateString(&#x27;fr-TN&#x27;)}
-                  &lt;/td&gt;
-                &lt;/tr&gt;
-              ))}
-            &lt;/tbody&gt;
-          &lt;/table&gt;
-        )}
+      {/* search + sort */}
+      &lt;div className=&quot;flex flex-col sm:flex-row gap-2 mb-5&quot;&gt;
+        &lt;input
+          value={search}
+          onChange={(e) =&gt; setSearch(e.target.value)}
+          placeholder=&quot;فتّش برقم الطلب، اسم الحريف، الهاتف، أو الجهاز&quot;
+          className={inp + &#x27; flex-1&#x27;}
+        /&gt;
+        &lt;select
+          value={sortBy}
+          onChange={(e) =&gt; setSortBy(e.target.value)}
+          className={inp + &#x27; bg-white sm:w-52&#x27;}
+        &gt;
+          {SORT_OPTIONS.map((s) =&gt; (
+            &lt;option key={s.value} value={s.value}&gt;{s.label}&lt;/option&gt;
+          ))}
+        &lt;/select&gt;
       &lt;/div&gt;
 
+      {loading ? (
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;
+          &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;جاري التحميل...&lt;/p&gt;
+        &lt;/div&gt;
+      ) : visibleOrders.length === 0 ? (
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;
+          &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;
+            {orders.length === 0 ? &#x27;ما فماش طلبات بعد&#x27; : &#x27;ما فماش نتائج لهذا البحث&#x27;}
+          &lt;/p&gt;
+        &lt;/div&gt;
+      ) : (
+        &lt;&gt;
+          {/* Phone / tablet: one card per order, no sideways scrolling */}
+          &lt;div className=&quot;lg:hidden flex flex-col gap-3&quot;&gt;
+            {visibleOrders.map((o) =&gt; (
+              &lt;button
+                key={o.id}
+                onClick={() =&gt; openModal(o)}
+                className=&quot;text-right bg-white border border-[#e5e5e5] rounded-xl p-4 hover:bg-[#fbfaf6]&quot;
+              &gt;
+                &lt;div className=&quot;flex justify-between items-start gap-3 mb-2&quot;&gt;
+                  &lt;span className=&quot;font-bold text-[#b3170f] text-sm&quot; dir=&quot;ltr&quot;&gt;
+                    {o.order_number}
+                  &lt;/span&gt;
+                  &lt;StatusBadge status={o.status} /&gt;
+                &lt;/div&gt;
+                &lt;p className=&quot;font-semibold text-[#1a1a1a] text-sm&quot;&gt;{o.clients?.full_name}&lt;/p&gt;
+                &lt;p className=&quot;text-xs text-[#6b6b6b]&quot;&gt;{o.clients?.phone}&lt;/p&gt;
+                &lt;div className=&quot;flex justify-between items-center mt-3 pt-3 border-t border-[#f0f0ea]&quot;&gt;
+                  &lt;span className=&quot;text-xs text-[#6b6b6b]&quot;&gt;{o.device_model}&lt;/span&gt;
+                  {o.final_price ? (
+                    &lt;span className={`text-xs font-semibold ${o.price_confirmed ? &#x27;text-green-700&#x27; : &#x27;text-[#b3170f]&#x27;}`}&gt;
+                      {o.final_price} د.ت {!o.price_confirmed &amp;&amp; &#x27;(غير مؤكد)&#x27;}
+                    &lt;/span&gt;
+                  ) : (
+                    &lt;span className=&quot;text-xs text-[#6b6b6b]&quot;&gt;لا يوجد سعر بعد&lt;/span&gt;
+                  )}
+                &lt;/div&gt;
+              &lt;/button&gt;
+            ))}
+          &lt;/div&gt;
+
+          {/* Desktop: the original table */}
+          &lt;div className=&quot;hidden lg:block bg-white border border-[#e5e5e5] rounded-xl overflow-hidden&quot;&gt;
+            &lt;table className=&quot;w-full text-sm&quot;&gt;
+              &lt;thead&gt;
+                &lt;tr className=&quot;bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold&quot;&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;رقم الطلب&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;الحريف&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;الجهاز&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;الحالة&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;السعر&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;التاريخ&lt;/th&gt;
+                &lt;/tr&gt;
+              &lt;/thead&gt;
+              &lt;tbody&gt;
+                {visibleOrders.map((o) =&gt; (
+                  &lt;tr key={o.id} onClick={() =&gt; openModal(o)} className=&quot;hover:bg-[#fbfaf6] cursor-pointer&quot;&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] font-bold text-[#b3170f]&quot; dir=&quot;ltr&quot; style={{ textAlign: &#x27;right&#x27; }}&gt;
+                      {o.order_number}
+                    &lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;
+                      {o.clients?.full_name}
+                      &lt;div className=&quot;text-xs text-[#6b6b6b]&quot;&gt;{o.clients?.phone}&lt;/div&gt;
+                    &lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;{o.device_model}&lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;
+                      &lt;StatusBadge status={o.status} /&gt;
+                    &lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;
+                      {o.final_price ? (
+                        &lt;span className={o.price_confirmed ? &#x27;text-green-700&#x27; : &#x27;text-[#b3170f] font-semibold&#x27;}&gt;
+                          {o.final_price} د.ت {!o.price_confirmed &amp;&amp; &#x27;(غير مؤكد)&#x27;}
+                        &lt;/span&gt;
+                      ) : (
+                        &lt;span className=&quot;text-xs text-[#6b6b6b]&quot;&gt;لا يوجد بعد&lt;/span&gt;
+                      )}
+                    &lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] text-xs text-[#6b6b6b]&quot;&gt;
+                      {new Date(o.created_at).toLocaleDateString(&#x27;fr-TN&#x27;)}
+                    &lt;/td&gt;
+                  &lt;/tr&gt;
+                ))}
+              &lt;/tbody&gt;
+            &lt;/table&gt;
+          &lt;/div&gt;
+        &lt;/&gt;
+      )}
+
       {selectedOrder &amp;&amp; form &amp;&amp; (
-        &lt;div className=&quot;fixed inset-0 bg-black/40 flex items-center justify-center z-50&quot; onClick={closeModal}&gt;
-          &lt;div className=&quot;bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto&quot; onClick={(e) =&gt; e.stopPropagation()}&gt;
+        &lt;div className=&quot;fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50&quot; onClick={closeModal}&gt;
+          &lt;div
+            className=&quot;bg-white rounded-t-xl sm:rounded-xl p-5 sm:p-6 w-full sm:max-w-lg max-h-[92vh] sm:max-h-[90vh] overflow-y-auto&quot;
+            onClick={(e) =&gt; e.stopPropagation()}
+          &gt;
             &lt;div className=&quot;flex justify-between items-start mb-4 pb-3 border-b border-[#e5e5e5]&quot;&gt;
               &lt;div&gt;
                 &lt;h3 className=&quot;font-bold text-[#1a1a1a]&quot;&gt;{selectedOrder.order_number}&lt;/h3&gt;
@@ -4244,7 +4354,7 @@ export default function ComptoirDashboard() {
             &lt;/div&gt;
 
             &lt;h4 className=&quot;text-xs font-bold text-[#e4211b] mb-3&quot;&gt;معلومات الحريف&lt;/h4&gt;
-            &lt;div className=&quot;grid grid-cols-2 gap-3 mb-4&quot;&gt;
+            &lt;div className=&quot;grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4&quot;&gt;
               &lt;div&gt;
                 &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;اسم الحريف&lt;/label&gt;
                 &lt;input
@@ -4259,6 +4369,7 @@ export default function ComptoirDashboard() {
                   value={form.clientPhone}
                   onChange={(e) =&gt; setForm({ ...form, clientPhone: e.target.value })}
                   className=&quot;w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm&quot;
+                  dir=&quot;ltr&quot;
                 /&gt;
               &lt;/div&gt;
             &lt;/div&gt;
@@ -4280,7 +4391,7 @@ export default function ComptoirDashboard() {
                 className=&quot;w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm min-h-[60px]&quot;
               /&gt;
             &lt;/div&gt;
-            &lt;div className=&quot;grid grid-cols-2 gap-3 mb-3&quot;&gt;
+            &lt;div className=&quot;grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3&quot;&gt;
               &lt;div&gt;
                 &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;من (د.ت)&lt;/label&gt;
                 &lt;input
@@ -4327,7 +4438,7 @@ export default function ComptoirDashboard() {
             &lt;div className=&quot;pt-4 border-t border-[#e5e5e5]&quot;&gt;
               &lt;h4 className=&quot;text-xs font-bold text-[#e4211b] mb-2&quot;&gt;السعر النهائي (من التقني)&lt;/h4&gt;
               {selectedOrder.final_price ? (
-                &lt;div className=&quot;flex items-center justify-between bg-[#faf9f5] rounded-lg p-3&quot;&gt;
+                &lt;div className=&quot;flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#faf9f5] rounded-lg p-3&quot;&gt;
                   &lt;div&gt;
                     &lt;span className=&quot;font-bold text-[#1a1a1a]&quot;&gt;{selectedOrder.final_price} د.ت&lt;/span&gt;
                     &lt;span className={`text-xs mr-2 ${selectedOrder.price_confirmed ? &#x27;text-green-700&#x27; : &#x27;text-[#b3170f]&#x27;}`}&gt;
@@ -4338,7 +4449,7 @@ export default function ComptoirDashboard() {
                     &lt;button
                       onClick={handleConfirmPrice}
                       disabled={confirming}
-                      className=&quot;bg-green-700 text-white text-sm px-4 py-2 rounded-lg hover:opacity-90 disabled:opacity-60&quot;
+                      className=&quot;w-full sm:w-auto bg-green-700 text-white text-sm px-4 py-2 rounded-lg hover:opacity-90 disabled:opacity-60&quot;
                     &gt;
                       {confirming ? &#x27;...&#x27; : &#x27;تأكيد السعر&#x27;}
                     &lt;/button&gt;
@@ -4367,16 +4478,24 @@ export default function ComptoirDashboard() {
     &lt;/div&gt;
   )
 }
-</pre></div><h3>src/pages/technicien/TechnicienDashboard.jsx — FINAL (mobile cards)</h3><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
+</pre></div>
+<h3>src/pages/technicien/TechnicienDashboard.jsx</h3><p class="n">Mobile cards + search box + newest/oldest sort.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useMemo, useState } from &#x27;react&#x27;
 import { Link } from &#x27;react-router-dom&#x27;
 import { supabase } from &#x27;../../lib/supabaseClient&#x27;
 import { useAuth } from &#x27;../../context/AuthContext&#x27;
 import StatusBadge from &#x27;../../components/ui/StatusBadge&#x27;
 
+const SORT_OPTIONS = [
+  { value: &#x27;date_desc&#x27;, label: &#x27;الأحدث أولًا&#x27; },
+  { value: &#x27;date_asc&#x27;, label: &#x27;الأقدم أولًا&#x27; },
+]
+
 export default function TechnicienDashboard() {
   const { user } = useAuth()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState(&#x27;&#x27;)
+  const [sortBy, setSortBy] = useState(&#x27;date_desc&#x27;)
 
   useEffect(() =&gt; {
     if (user) loadMyOrders()
@@ -4393,6 +4512,25 @@ export default function TechnicienDashboard() {
     setLoading(false)
   }
 
+  // Search box + sort, both client-side (this technician&#x27;s own list is small enough
+  // that loading it once and filtering/sorting in the browser is simplest).
+  const visibleOrders = useMemo(() =&gt; {
+    const q = search.trim().toLowerCase()
+    let list = !q
+      ? orders
+      : orders.filter((o) =&gt;
+          [o.order_number, o.device_model, o.issue_description].join(&#x27; &#x27;).toLowerCase().includes(q)
+        )
+    list = [...list].sort((a, b) =&gt;
+      sortBy === &#x27;date_asc&#x27;
+        ? new Date(a.created_at) - new Date(b.created_at)
+        : new Date(b.created_at) - new Date(a.created_at)
+    )
+    return list
+  }, [orders, search, sortBy])
+
+  const inp = &#x27;px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b]&#x27;
+
   return (
     &lt;div&gt;
       &lt;div className=&quot;mb-6 pb-4 border-b border-[#e5e5e5]&quot;&gt;
@@ -4400,19 +4538,40 @@ export default function TechnicienDashboard() {
         &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;{orders.length} جهاز قيد المعالجة&lt;/p&gt;
       &lt;/div&gt;
 
+      {/* search + sort */}
+      &lt;div className=&quot;flex flex-col sm:flex-row gap-2 mb-5&quot;&gt;
+        &lt;input
+          value={search}
+          onChange={(e) =&gt; setSearch(e.target.value)}
+          placeholder=&quot;فتّش برقم الطلب، الجهاز، أو وصف العطل&quot;
+          className={inp + &#x27; flex-1&#x27;}
+        /&gt;
+        &lt;select
+          value={sortBy}
+          onChange={(e) =&gt; setSortBy(e.target.value)}
+          className={inp + &#x27; bg-white sm:w-48&#x27;}
+        &gt;
+          {SORT_OPTIONS.map((s) =&gt; (
+            &lt;option key={s.value} value={s.value}&gt;{s.label}&lt;/option&gt;
+          ))}
+        &lt;/select&gt;
+      &lt;/div&gt;
+
       {loading ? (
         &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;
           &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;جاري التحميل...&lt;/p&gt;
         &lt;/div&gt;
-      ) : orders.length === 0 ? (
+      ) : visibleOrders.length === 0 ? (
         &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;
-          &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;ما فماش أجهزة مسندة ليك حاليًا&lt;/p&gt;
+          &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;
+            {orders.length === 0 ? &#x27;ما فماش أجهزة مسندة ليك حاليًا&#x27; : &#x27;ما فماش نتائج لهذا البحث&#x27;}
+          &lt;/p&gt;
         &lt;/div&gt;
       ) : (
         &lt;&gt;
           {/* Phone / tablet: one card per order, no sideways scrolling */}
           &lt;div className=&quot;lg:hidden flex flex-col gap-3&quot;&gt;
-            {orders.map((o) =&gt; (
+            {visibleOrders.map((o) =&gt; (
               &lt;Link
                 key={o.id}
                 to={`/technicien/order/${o.id}`}
@@ -4444,7 +4603,7 @@ export default function TechnicienDashboard() {
                 &lt;/tr&gt;
               &lt;/thead&gt;
               &lt;tbody&gt;
-                {orders.map((o) =&gt; (
+                {visibleOrders.map((o) =&gt; (
                   &lt;tr key={o.id} className=&quot;hover:bg-[#fbfaf6]&quot;&gt;
                     &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] font-bold text-[#b3170f]&quot; dir=&quot;ltr&quot; style={{ textAlign: &#x27;right&#x27; }}&gt;
                       {o.order_number}
@@ -4474,7 +4633,8 @@ export default function TechnicienDashboard() {
     &lt;/div&gt;
   )
 }
-</pre></div><p class="n">Then delete <code>src/pages/technicien/TechnicienExpenses.jsx</code> if it still exists (replaced by the shared expense pages).</p><h2 id="s5">5. Put the project on GitHub and make it live on Vercel</h2>
+</pre></div>
+<p class="n">Then delete <code>src/pages/technicien/TechnicienExpenses.jsx</code> if it still exists (replaced by the shared expense pages).</p><h2 id="s5">5. Put the project on GitHub and make it live on Vercel</h2>
 <p>Do this after Phase 1 + Phase 2 work on your computer (<code>npm run dev</code> shows no red errors). Everything is free. Where you see <code>USERNAME</code>, use your own GitHub username.</p>
 <div class="box"><b>What goes where</b><ul>
 <li><b>GitHub</b> = a backup of your code (React files only).</li>
@@ -4763,7 +4923,2255 @@ export default function ProtectedRoute({ allowedRoles }) {
 <li>Unpaid <b>accessories</b> are entered by hand on the Debts page until the accessory-sale page (Phase 3) exists.</li>
 <li>Daily report doesn't show open debts yet (a query on <code>debts</code> can add it).</li>
 <li>Notification bell UI is still Phase 5; the rows are already written to <code>notifications</code>.</li></ul>
+<div class="box"><b>Next phase — Phase 4: QR codes.</b> Every repair order already has a unique <code>access_token</code> and a public <code>/track/:access_token</code> page. Phase 4 builds on that:
+<ol><li>Generate a QR code per order (encodes the tracking link) and show/print it on the receipt, so the client scans it to follow the repair without logging in.</li>
+<li>A printable sticker/label for the device itself (order number + QR), so the technician can scan it to jump straight to <code>/technicien/order/:id</code>.</li>
+<li>Same idea for stock: a QR per phone/accessory in المخزون that opens its sale/detail screen, speeding up بيع إكسسوار.</li>
+<li>Optional after that: camera scanner inside the app (comptoir scans an order QR to open or deliver it).</li></ol>
+No new tables are strictly required for step 1 — it only needs a QR library (<code>qrcode.react</code>) and a printable receipt component. Send this file and say "Phase 4: QR".</div>
 <h2 id="s9">9. New conversation template</h2><pre>Hi. smart-repair-shop project (Mobile 4 You). Attached: this file (PROJECT_COMPLETE_SNAPSHOT.html).
 Last SQL script that ran successfully: [letter]. What works / fails (exact error text): [...]
 Next task: [...]. Do not assume code I did not send you.</pre>
+<h2 id="s10">10. Price guide — دليل الأسعار (screens, batteries... per phone model)</h2>
+<p>So comptoir can quote a customer on the spot instead of guessing. <b>Admin and technicien</b> can add/edit/delete rows; comptoir can only search and view. Prices are a <b>range</b> (من / إلى), same idea as the order's own price_min/price_max, and every row remembers who last touched it and when. One phone model can have several rows — e.g. 3 screen qualities at 3 different ranges — they show grouped under that model.</p>
+<div class="box"><b>This is reference only.</b> It never writes to <code>cash_transactions</code> and never touches Caisse — it's just a lookup table. Comptoir still enters the order's own price range by hand on the order form; this page just helps decide what to type there.</div>
+<h3>SQL Script J — part_price_guide table (price range + technicien access + audit trail)</h3>
+<p class="n">Run after Script I. Safe to run whether the table already exists or not — it upgrades an older single-"price" version automatically. Admin and technicien can insert/update/delete; comptoir can only read.</p>
+<div class="cb"><button onclick="cp(this)">Copy</button><pre>-- ============================================================
+-- J) PRICE GUIDE — reference price RANGE per phone model / part
+--    Editable by admin AND technicien. Comptoir: view + search only.
+--    Every row remembers who last touched it and when.
+--    Safe to run whether part_price_guide already exists or not.
+-- ============================================================
+create table if not exists part_price_guide (
+  id            uuid default gen_random_uuid() primary key,
+  device_model  text not null check (char_length(trim(device_model)) &gt; 0),
+  part_type     text not null check (char_length(trim(part_type)) &gt; 0),
+  quality_label text not null check (char_length(trim(quality_label)) &gt; 0),
+  notes         text,
+  created_by    uuid references profiles(id) default auth.uid(),
+  updated_by    uuid references profiles(id),
+  updated_at    timestamptz default now(),
+  created_at    timestamptz default now()
+);
+
+-- upgrade an older version of this table (single &quot;price&quot; column) if present
+alter table part_price_guide add column if not exists price_min numeric;
+alter table part_price_guide add column if not exists price_max numeric;
+alter table part_price_guide add column if not exists updated_by uuid references profiles(id);
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_name = &#x27;part_price_guide&#x27; and column_name = &#x27;price&#x27;) then
+    update part_price_guide set price_min = price where price_min is null;
+    alter table part_price_guide drop column price;
+  end if;
+end $$;
+
+alter table part_price_guide drop constraint if exists part_price_guide_price_check;
+alter table part_price_guide add constraint part_price_guide_price_check
+  check (price_min &gt; 0 and (price_max is null or price_max &gt;= price_min));
+
+create index if not exists idx_ppg_model on part_price_guide (lower(device_model));
+create index if not exists idx_ppg_type  on part_price_guide (part_type);
+
+alter table part_price_guide enable row level security;
+drop policy if exists &quot;view price guide&quot; on part_price_guide;
+drop policy if exists &quot;admin edit price guide&quot; on part_price_guide;
+drop policy if exists &quot;staff edit price guide&quot; on part_price_guide;
+
+-- everyone logged in can read/search
+create policy &quot;view price guide&quot; on part_price_guide
+  for select using (get_my_role() in (&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;comptoir&#x27;,&#x27;technicien&#x27;));
+
+-- admin AND technicien can add / edit / delete; comptoir cannot
+create policy &quot;staff edit price guide&quot; on part_price_guide
+  for all using (get_my_role() in (&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;technicien&#x27;))
+  with check (get_my_role() in (&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;technicien&#x27;));
+
+-- stamps who touched the row and when, on every insert AND update
+create or replace function touch_price_guide()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  new.updated_at = now();
+  new.updated_by = auth.uid();
+  return new;
+end $$;
+drop trigger if exists trg_touch_price_guide on part_price_guide;
+create trigger trg_touch_price_guide before insert or update on part_price_guide
+  for each row execute procedure touch_price_guide();
+
+-- verify (read-only)
+select tablename, policyname, cmd from pg_policies where tablename = &#x27;part_price_guide&#x27;;
+select column_name from information_schema.columns
+where table_name = &#x27;part_price_guide&#x27; order by ordinal_position;
+</pre></div>
+<h3>src/pages/shared/PriceGuide.jsx</h3>
+<p class="n">Search box (with clear ✕) + part-type chips with counts. Grouped by phone model, each part shows an icon, a quality pill and a green price pill. "من / إلى" range ("إلى" optional). Each row shows "آخر تعديل: name · date". Add/edit/delete for admin and technicien only. <br><b>Updated:</b> the old tiny "تعديل" text link is now a real ✏️ <b>تعديل</b> button (36px tap target, red on hover/press) on every row, phone and desktop. Add/edit opens as a bottom sheet on phones and a centered dialog on desktop (Esc / tap outside / ✕ closes it), the row being edited stays highlighted, delete lives inside the sheet, and each model header has "+ قطعة لهذا الموديل" to add a part with the model pre-filled. Loading skeleton + friendly empty state.</p>
+<div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useMemo, useState } from &#x27;react&#x27;
+import { supabase } from &#x27;../../lib/supabaseClient&#x27;
+import { useAuth } from &#x27;../../context/AuthContext&#x27;
+
+// Common part types shown as quick filter chips + suggestions in the form.
+// Free text is still allowed (e.g. &quot;بورت شحن&quot;) — this list is just a shortcut.
+const COMMON_PARTS = [&#x27;شاشة&#x27;, &#x27;بطارية&#x27;, &#x27;سماعة&#x27;, &#x27;كاميرا&#x27;, &#x27;بورت شحن&#x27;, &#x27;زجاج خلفي&#x27;]
+const PART_ICONS = { &#x27;شاشة&#x27;: &#x27;📱&#x27;, &#x27;بطارية&#x27;: &#x27;🔋&#x27;, &#x27;سماعة&#x27;: &#x27;🔊&#x27;, &#x27;كاميرا&#x27;: &#x27;📷&#x27;, &#x27;بورت شحن&#x27;: &#x27;🔌&#x27;, &#x27;زجاج خلفي&#x27;: &#x27;🪟&#x27; }
+const partIcon = (p) =&gt; PART_ICONS[p] || &#x27;🔧&#x27;
+
+function priceLabel(r) {
+  const hasMax = r.price_max != null &amp;&amp; Number(r.price_max) !== Number(r.price_min)
+  return hasMax
+    ? `${Number(r.price_min).toFixed(2)} - ${Number(r.price_max).toFixed(2)} د.ت`
+    : `${Number(r.price_min).toFixed(2)} د.ت`
+}
+
+function EditedBy({ r }) {
+  if (!r.updated_at) return null
+  return (
+    &lt;p className=&quot;text-[11px] text-[#9a9a9a] mt-1&quot;&gt;
+      آخر تعديل: {r.profiles?.full_name || &#x27;—&#x27;} · {new Date(r.updated_at).toLocaleDateString(&#x27;fr-TN&#x27;)}
+    &lt;/p&gt;
+  )
+}
+
+// Proper, tappable edit button (replaces the old tiny 10px text link).
+function EditButton({ onClick }) {
+  return (
+    &lt;button
+      type=&quot;button&quot;
+      onClick={onClick}
+      className=&quot;inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-lg border border-[#e5e5e5] bg-white text-xs font-semibold text-[#1a1a1a] hover:border-[#e4211b] hover:text-[#e4211b] active:bg-[#fdeaea] transition-colors&quot;
+    &gt;
+      &lt;span aria-hidden=&quot;true&quot;&gt;✏️&lt;/span&gt; تعديل
+    &lt;/button&gt;
+  )
+}
+
+export default function PriceGuide() {
+  const { user, profile } = useAuth()
+  // Admin AND technicien can add / edit / delete. Comptoir can only view and search.
+  const canEdit = [&#x27;admin&#x27;, &#x27;super_admin&#x27;, &#x27;technicien&#x27;].includes(profile?.role)
+
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [search, setSearch] = useState(&#x27;&#x27;)
+  const [partFilter, setPartFilter] = useState(&#x27;&#x27;)
+
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [form, setForm] = useState(emptyForm())
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState(null)
+
+  function emptyForm() {
+    return { device_model: &#x27;&#x27;, part_type: &#x27;&#x27;, quality_label: &#x27;&#x27;, price_min: &#x27;&#x27;, price_max: &#x27;&#x27;, notes: &#x27;&#x27; }
+  }
+
+  useEffect(() =&gt; { load() }, [])
+
+  // Esc closes the edit sheet
+  useEffect(() =&gt; {
+    if (!showForm) return
+    const onKey = (e) =&gt; { if (e.key === &#x27;Escape&#x27;) setShowForm(false) }
+    window.addEventListener(&#x27;keydown&#x27;, onKey)
+    return () =&gt; window.removeEventListener(&#x27;keydown&#x27;, onKey)
+  }, [showForm])
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    // two foreign keys to profiles (created_by / updated_by) -&gt; name the one we want
+    const { data, error: e } = await supabase
+      .from(&#x27;part_price_guide&#x27;)
+      .select(
+        &#x27;id, device_model, part_type, quality_label, price_min, price_max, notes, updated_at, &#x27; +
+        &#x27;profiles!part_price_guide_updated_by_fkey(full_name)&#x27;
+      )
+      .order(&#x27;device_model&#x27;, { ascending: true })
+      .order(&#x27;part_type&#x27;, { ascending: true })
+      .order(&#x27;price_min&#x27;, { ascending: true })
+    if (e) setError(e.message)
+    setRows(data || [])
+    setLoading(false)
+  }
+
+  // Search box filters by device model OR part type OR quality label — all client-side,
+  // since the whole guide is small enough to load once and filter instantly as you type.
+  const filtered = useMemo(() =&gt; {
+    const q = search.trim().toLowerCase()
+    return rows.filter((r) =&gt; {
+      const matchesText =
+        !q ||
+        r.device_model.toLowerCase().includes(q) ||
+        r.part_type.toLowerCase().includes(q) ||
+        r.quality_label.toLowerCase().includes(q)
+      const matchesPart = !partFilter || r.part_type === partFilter
+      return matchesText &amp;&amp; matchesPart
+    })
+  }, [rows, search, partFilter])
+
+  // group by device model so all rows for &quot;iPhone 13&quot; (screen x3, battery...) sit together
+  const grouped = useMemo(() =&gt; {
+    const map = new Map()
+    for (const r of filtered) {
+      if (!map.has(r.device_model)) map.set(r.device_model, [])
+      map.get(r.device_model).push(r)
+    }
+    return [...map.entries()]
+  }, [filtered])
+
+  const partTypesInUse = useMemo(() =&gt; {
+    const counts = new Map()
+    for (const r of rows) counts.set(r.part_type, (counts.get(r.part_type) || 0) + 1)
+    return [...counts.entries()].sort((a, b) =&gt; a[0].localeCompare(b[0], &#x27;ar&#x27;))
+  }, [rows])
+
+  function openAdd(prefillModel = &#x27;&#x27;) {
+    setEditingId(null)
+    setForm({ ...emptyForm(), device_model: prefillModel })
+    setFormError(null)
+    setShowForm(true)
+  }
+
+  function openEdit(r) {
+    setEditingId(r.id)
+    setForm({
+      device_model: r.device_model, part_type: r.part_type, quality_label: r.quality_label,
+      price_min: r.price_min, price_max: r.price_max ?? &#x27;&#x27;, notes: r.notes || &#x27;&#x27;,
+    })
+    setFormError(null)
+    setShowForm(true)
+  }
+
+  async function submitForm(e) {
+    e.preventDefault()
+    setFormError(null)
+    const min = Number(form.price_min)
+    const max = form.price_max === &#x27;&#x27; ? null : Number(form.price_max)
+    if (!form.device_model.trim() || !form.part_type.trim() || !form.quality_label.trim() || !(min &gt; 0)) {
+      setFormError(&#x27;عمّر الموديل ونوع القطعة والدرجة وسعر &quot;من&quot; على الأقل&#x27;)
+      return
+    }
+    if (max !== null &amp;&amp; max &lt; min) {
+      setFormError(&#x27;&quot;إلى&quot; لازم يكون أكبر أو يساوي &quot;من&quot;&#x27;)
+      return
+    }
+    setSaving(true)
+    const payload = {
+      device_model: form.device_model.trim(),
+      part_type: form.part_type.trim(),
+      quality_label: form.quality_label.trim(),
+      price_min: min,
+      price_max: max,
+      notes: form.notes.trim() || null,
+    }
+    const { error: err } = editingId
+      ? await supabase.from(&#x27;part_price_guide&#x27;).update(payload).eq(&#x27;id&#x27;, editingId)
+      : await supabase.from(&#x27;part_price_guide&#x27;).insert({ ...payload, created_by: user.id })
+    setSaving(false)
+    if (err) { setFormError(&#x27;خطأ: &#x27; + err.message); return }
+    setShowForm(false)
+    load()
+  }
+
+  async function remove(id) {
+    if (!window.confirm(&#x27;حذف هذا السعر نهائيًا؟&#x27;)) return
+    const { error: err } = await supabase.from(&#x27;part_price_guide&#x27;).delete().eq(&#x27;id&#x27;, id)
+    if (err) { alert(&#x27;ما نجحش: &#x27; + err.message); return }
+    setShowForm(false)
+    load()
+  }
+
+  const inp = &#x27;w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm bg-white focus:outline-none focus:border-[#e4211b] focus:ring-2 focus:ring-[#e4211b]/10&#x27;
+
+  return (
+    &lt;div&gt;
+      {/* header */}
+      &lt;div className=&quot;flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end mb-6 pb-4 border-b border-[#e5e5e5]&quot;&gt;
+        &lt;div&gt;
+          &lt;h1 className=&quot;text-xl font-extrabold text-[#1a1a1a] mb-1&quot;&gt;دليل الأسعار&lt;/h1&gt;
+          &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;
+            أسعار تقديرية (من - إلى) حسب موديل الهاتف ونوع القطعة
+            {rows.length &gt; 0 &amp;&amp; &lt;span className=&quot;text-[#9a9a9a]&quot;&gt; · {rows.length} سعر&lt;/span&gt;}
+          &lt;/p&gt;
+        &lt;/div&gt;
+        {canEdit &amp;&amp; (
+          &lt;button
+            onClick={() =&gt; openAdd()}
+            className=&quot;w-full sm:w-auto bg-[#e4211b] text-white font-semibold text-sm px-5 py-2.5 rounded-lg shadow-sm active:scale-[0.98] transition&quot;
+          &gt;
+            + إضافة سعر
+          &lt;/button&gt;
+        )}
+      &lt;/div&gt;
+
+      {/* search + part-type chips */}
+      &lt;div className=&quot;mb-5&quot;&gt;
+        &lt;div className=&quot;relative mb-3&quot;&gt;
+          &lt;span className=&quot;absolute top-1/2 -translate-y-1/2 right-3.5 text-[#9a9a9a] pointer-events-none&quot; aria-hidden=&quot;true&quot;&gt;🔎&lt;/span&gt;
+          &lt;input
+            value={search}
+            onChange={(e) =&gt; setSearch(e.target.value)}
+            placeholder=&quot;فتّش بموديل الهاتف أو نوع القطعة (مثلاً: iPhone 13 أو شاشة)&quot;
+            className={inp + &#x27; pr-10 pl-10&#x27;}
+          /&gt;
+          {search &amp;&amp; (
+            &lt;button
+              onClick={() =&gt; setSearch(&#x27;&#x27;)}
+              aria-label=&quot;مسح البحث&quot;
+              className=&quot;absolute top-1/2 -translate-y-1/2 left-2 w-7 h-7 rounded-full text-[#6b6b6b] hover:bg-[#f3f1ea]&quot;
+            &gt;
+              ✕
+            &lt;/button&gt;
+          )}
+        &lt;/div&gt;
+        {partTypesInUse.length &gt; 0 &amp;&amp; (
+          &lt;div className=&quot;flex gap-2 overflow-x-auto -mx-1 px-1 pb-1&quot;&gt;
+            &lt;button
+              onClick={() =&gt; setPartFilter(&#x27;&#x27;)}
+              className={`shrink-0 text-xs font-semibold px-3.5 py-2 rounded-full border transition-colors ${!partFilter ? &#x27;bg-[#1a1a1a] text-white border-[#1a1a1a]&#x27; : &#x27;bg-white border-[#e5e5e5] text-[#6b6b6b]&#x27;}`}
+            &gt;
+              الكل
+            &lt;/button&gt;
+            {partTypesInUse.map(([p, n]) =&gt; (
+              &lt;button
+                key={p}
+                onClick={() =&gt; setPartFilter(p === partFilter ? &#x27;&#x27; : p)}
+                className={`shrink-0 text-xs font-semibold px-3.5 py-2 rounded-full border transition-colors ${partFilter === p ? &#x27;bg-[#e4211b] text-white border-[#e4211b]&#x27; : &#x27;bg-white border-[#e5e5e5] text-[#6b6b6b]&#x27;}`}
+              &gt;
+                {partIcon(p)} {p} &lt;span className=&quot;opacity-60&quot;&gt;· {n}&lt;/span&gt;
+              &lt;/button&gt;
+            ))}
+          &lt;/div&gt;
+        )}
+      &lt;/div&gt;
+
+      {error &amp;&amp; &lt;p className=&quot;bg-[#fdeaea] text-[#b3170f] text-sm rounded-lg px-4 py-3 mb-4&quot;&gt;{error}&lt;/p&gt;}
+
+      {/* list */}
+      {loading ? (
+        &lt;div className=&quot;flex flex-col gap-4&quot;&gt;
+          {[1, 2].map((i) =&gt; &lt;div key={i} className=&quot;h-32 rounded-2xl bg-[#f3f1ea] animate-pulse&quot; /&gt;)}
+        &lt;/div&gt;
+      ) : grouped.length === 0 ? (
+        &lt;div className=&quot;bg-white border border-dashed border-[#d8d8d0] rounded-2xl p-10 text-center&quot;&gt;
+          &lt;p className=&quot;text-3xl mb-2&quot;&gt;💲&lt;/p&gt;
+          &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;
+            {rows.length === 0 ? &#x27;ما فماش أسعار مسجلة بعد.&#x27; : &#x27;ما فماش نتائج لهذا البحث.&#x27;}
+          &lt;/p&gt;
+        &lt;/div&gt;
+      ) : (
+        &lt;div className=&quot;flex flex-col gap-4&quot;&gt;
+          {grouped.map(([model, items]) =&gt; (
+            &lt;div key={model} className=&quot;bg-white border border-[#e5e5e5] rounded-2xl overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)]&quot;&gt;
+              &lt;div className=&quot;px-4 sm:px-5 py-3 bg-[#faf9f5] border-b border-[#e5e5e5] flex items-center justify-between gap-3&quot;&gt;
+                &lt;h2 className=&quot;font-extrabold text-[#1a1a1a] text-sm truncate&quot;&gt;{model}&lt;/h2&gt;
+                &lt;div className=&quot;flex items-center gap-2 shrink-0&quot;&gt;
+                  &lt;span className=&quot;text-[11px] font-semibold text-[#6b6b6b] bg-white border border-[#e5e5e5] rounded-full px-2.5 py-0.5&quot;&gt;
+                    {items.length}
+                  &lt;/span&gt;
+                  {canEdit &amp;&amp; (
+                    &lt;button
+                      onClick={() =&gt; openAdd(model)}
+                      className=&quot;text-[11px] font-semibold text-[#e4211b] hover:underline&quot;
+                    &gt;
+                      + قطعة لهذا الموديل
+                    &lt;/button&gt;
+                  )}
+                &lt;/div&gt;
+              &lt;/div&gt;
+
+              &lt;div className=&quot;divide-y divide-[#f0f0ea]&quot;&gt;
+                {items.map((r) =&gt; (
+                  &lt;div
+                    key={r.id}
+                    className={`p-4 sm:px-5 flex flex-col sm:flex-row sm:items-center gap-3 transition-colors ${showForm &amp;&amp; editingId === r.id ? &#x27;bg-[#fff8f0]&#x27; : &#x27;hover:bg-[#fbfaf6]&#x27;}`}
+                  &gt;
+                    &lt;div className=&quot;flex items-start gap-3 min-w-0 flex-1&quot;&gt;
+                      &lt;span className=&quot;w-9 h-9 shrink-0 rounded-xl bg-[#f3f1ea] flex items-center justify-center text-base&quot; aria-hidden=&quot;true&quot;&gt;
+                        {partIcon(r.part_type)}
+                      &lt;/span&gt;
+                      &lt;div className=&quot;min-w-0&quot;&gt;
+                        &lt;p className=&quot;text-sm font-bold text-[#1a1a1a]&quot;&gt;
+                          {r.part_type}
+                          &lt;span className=&quot;font-medium text-[11px] text-[#6b6b6b] bg-[#f3f1ea] rounded-full px-2 py-0.5 mr-2&quot;&gt;
+                            {r.quality_label}
+                          &lt;/span&gt;
+                        &lt;/p&gt;
+                        {r.notes &amp;&amp; &lt;p className=&quot;text-xs text-[#6b6b6b] mt-1 break-words&quot;&gt;{r.notes}&lt;/p&gt;}
+                        &lt;EditedBy r={r} /&gt;
+                      &lt;/div&gt;
+                    &lt;/div&gt;
+
+                    &lt;div className=&quot;flex items-center justify-between sm:justify-end gap-3 shrink-0&quot;&gt;
+                      &lt;span className=&quot;font-extrabold text-[#1f8a4c] text-sm bg-[#e8f6ee] rounded-lg px-3 py-1.5 whitespace-nowrap&quot;&gt;
+                        {priceLabel(r)}
+                      &lt;/span&gt;
+                      {canEdit &amp;&amp; &lt;EditButton onClick={() =&gt; openEdit(r)} /&gt;}
+                    &lt;/div&gt;
+                  &lt;/div&gt;
+                ))}
+              &lt;/div&gt;
+            &lt;/div&gt;
+          ))}
+        &lt;/div&gt;
+      )}
+
+      {/* add / edit — bottom sheet on phone, centered dialog on desktop */}
+      {canEdit &amp;&amp; showForm &amp;&amp; (
+        &lt;div
+          className=&quot;fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40&quot;
+          onClick={(e) =&gt; { if (e.target === e.currentTarget) setShowForm(false) }}
+        &gt;
+          &lt;form
+            onSubmit={submitForm}
+            className=&quot;bg-white w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 shadow-xl&quot;
+          &gt;
+            &lt;div className=&quot;flex items-center justify-between mb-5&quot;&gt;
+              &lt;h3 className=&quot;font-extrabold text-base&quot;&gt;{editingId ? &#x27;✏️ تعديل السعر&#x27; : &#x27;سعر جديد&#x27;}&lt;/h3&gt;
+              &lt;button type=&quot;button&quot; onClick={() =&gt; setShowForm(false)} aria-label=&quot;إغلاق&quot;
+                className=&quot;w-8 h-8 rounded-full text-[#6b6b6b] hover:bg-[#f3f1ea]&quot;&gt;✕&lt;/button&gt;
+            &lt;/div&gt;
+
+            &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;موديل الهاتف&lt;/label&gt;
+            &lt;input className={inp + &#x27; mb-4&#x27;} placeholder=&quot;مثلاً: iPhone 13 Pro&quot;
+              value={form.device_model} onChange={(e) =&gt; setForm({ ...form, device_model: e.target.value })} /&gt;
+
+            &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;نوع القطعة&lt;/label&gt;
+            &lt;input className={inp + &#x27; mb-2&#x27;} placeholder=&quot;مثلاً: شاشة&quot;
+              value={form.part_type} onChange={(e) =&gt; setForm({ ...form, part_type: e.target.value })} list=&quot;part-type-options&quot; /&gt;
+            &lt;datalist id=&quot;part-type-options&quot;&gt;
+              {COMMON_PARTS.map((p) =&gt; &lt;option key={p} value={p} /&gt;)}
+            &lt;/datalist&gt;
+            &lt;div className=&quot;flex gap-1.5 flex-wrap mb-4&quot;&gt;
+              {COMMON_PARTS.map((p) =&gt; (
+                &lt;button type=&quot;button&quot; key={p} onClick={() =&gt; setForm({ ...form, part_type: p })}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${form.part_type === p ? &#x27;bg-[#e4211b] text-white border-[#e4211b]&#x27; : &#x27;border-[#e5e5e5] text-[#6b6b6b] hover:border-[#e4211b] hover:text-[#e4211b]&#x27;}`}&gt;
+                  {partIcon(p)} {p}
+                &lt;/button&gt;
+              ))}
+            &lt;/div&gt;
+
+            &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;الدرجة / النوع (أصلي، نسخة درجة أولى...)&lt;/label&gt;
+            &lt;input className={inp + &#x27; mb-4&#x27;} placeholder=&quot;مثلاً: أصلي&quot;
+              value={form.quality_label} onChange={(e) =&gt; setForm({ ...form, quality_label: e.target.value })} /&gt;
+
+            &lt;div className=&quot;grid grid-cols-2 gap-3 mb-4&quot;&gt;
+              &lt;div&gt;
+                &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;من (د.ت)&lt;/label&gt;
+                &lt;input type=&quot;number&quot; step=&quot;0.001&quot; inputMode=&quot;decimal&quot; className={inp}
+                  value={form.price_min} onChange={(e) =&gt; setForm({ ...form, price_min: e.target.value })} /&gt;
+              &lt;/div&gt;
+              &lt;div&gt;
+                &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;إلى (اختياري)&lt;/label&gt;
+                &lt;input type=&quot;number&quot; step=&quot;0.001&quot; inputMode=&quot;decimal&quot; className={inp} placeholder=&quot;فارغ = سعر ثابت&quot;
+                  value={form.price_max} onChange={(e) =&gt; setForm({ ...form, price_max: e.target.value })} /&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+
+            &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;ملاحظات (اختياري)&lt;/label&gt;
+            &lt;input className={inp + &#x27; mb-4&#x27;}
+              value={form.notes} onChange={(e) =&gt; setForm({ ...form, notes: e.target.value })} /&gt;
+
+            {formError &amp;&amp; &lt;p className=&quot;bg-[#fdeaea] text-[#b3170f] text-sm rounded-lg px-3 py-2 mb-3&quot;&gt;{formError}&lt;/p&gt;}
+
+            &lt;div className=&quot;flex items-center gap-2&quot;&gt;
+              &lt;button disabled={saving}
+                className=&quot;flex-1 bg-[#e4211b] text-white font-semibold text-sm px-5 py-3 rounded-lg disabled:opacity-60&quot;&gt;
+                {saving ? &#x27;...&#x27; : &#x27;حفظ&#x27;}
+              &lt;/button&gt;
+              &lt;button type=&quot;button&quot; onClick={() =&gt; setShowForm(false)}
+                className=&quot;px-5 py-3 text-sm font-semibold rounded-lg border border-[#e5e5e5] text-[#6b6b6b]&quot;&gt;
+                إلغاء
+              &lt;/button&gt;
+              {editingId &amp;&amp; (
+                &lt;button type=&quot;button&quot; onClick={() =&gt; remove(editingId)}
+                  className=&quot;px-4 py-3 text-sm font-semibold rounded-lg text-[#b3170f] hover:bg-[#fdeaea]&quot;&gt;
+                  🗑 حذف
+                &lt;/button&gt;
+              )}
+            &lt;/div&gt;
+          &lt;/form&gt;
+        &lt;/div&gt;
+      )}
+    &lt;/div&gt;
+  )
+}
+</pre></div>
+<h3>src/components/layout/Sidebar.jsx</h3>
+<p class="n">Adds "دليل الأسعار" for all three roles. Replace your Sidebar.jsx (paired with ProtectedLayout.jsx from section 4) with this version.</p>
+<div class="cb"><button onclick="cp(this)">Copy</button><pre>import { NavLink, useNavigate } from &#x27;react-router-dom&#x27;
+import { useAuth } from &#x27;../../context/AuthContext&#x27;
+import logo from &#x27;../../assets/logo.png&#x27;
+
+const NAV_BY_ROLE = {
+  comptoir: [
+    { to: &#x27;/comptoir&#x27;, label: &#x27;الطلبات&#x27;, icon: &#x27;📋&#x27; },
+    { to: &#x27;/comptoir/new-order&#x27;, label: &#x27;استقبال جهاز جديد&#x27;, icon: &#x27;📱&#x27; },
+    { to: &#x27;/comptoir/sell&#x27;, label: &#x27;بيع إكسسوار&#x27;, icon: &#x27;🛍️&#x27; },
+    { to: &#x27;/comptoir/expenses&#x27;, label: &#x27;مصاريف قطع الغيار&#x27;, icon: &#x27;🔧&#x27; },
+    { to: &#x27;/comptoir/general-expenses&#x27;, label: &#x27;مصاريف عامة&#x27;, icon: &#x27;💵&#x27; },
+    { to: &#x27;/caisse&#x27;, label: &#x27;الصندوق&#x27;, icon: &#x27;💰&#x27; },
+    { to: &#x27;/comptoir/debts&#x27;, label: &#x27;ديون الحرفاء&#x27;, icon: &#x27;🧾&#x27; },
+    { to: &#x27;/price-guide&#x27;, label: &#x27;دليل الأسعار&#x27;, icon: &#x27;💲&#x27; },
+  ],
+  technicien: [
+    { to: &#x27;/technicien&#x27;, label: &#x27;أجهزتي&#x27;, icon: &#x27;🔧&#x27; },
+    { to: &#x27;/technicien/expenses&#x27;, label: &#x27;مصاريف قطع الغيار&#x27;, icon: &#x27;🛠️&#x27; },
+    { to: &#x27;/technicien/general-expenses&#x27;, label: &#x27;مصاريف عامة&#x27;, icon: &#x27;💵&#x27; },
+    { to: &#x27;/price-guide&#x27;, label: &#x27;دليل الأسعار&#x27;, icon: &#x27;💲&#x27; },
+  ],
+  admin: [
+    { to: &#x27;/admin&#x27;, label: &#x27;لوحة التحكم&#x27;, icon: &#x27;📊&#x27; },
+    { to: &#x27;/admin/users&#x27;, label: &#x27;الموظفون&#x27;, icon: &#x27;👥&#x27; },
+    { to: &#x27;/admin/accessories&#x27;, label: &#x27;المخزون&#x27;, icon: &#x27;📦&#x27; },
+    { to: &#x27;/caisse&#x27;, label: &#x27;الصندوق&#x27;, icon: &#x27;💰&#x27; },
+    { to: &#x27;/admin/expenses&#x27;, label: &#x27;مصاريف قطع الغيار&#x27;, icon: &#x27;🔧&#x27; },
+    { to: &#x27;/admin/general-expenses&#x27;, label: &#x27;مصاريف عامة&#x27;, icon: &#x27;💵&#x27; },
+    { to: &#x27;/admin/expenses-approval&#x27;, label: &#x27;اعتماد المصاريف&#x27;, icon: &#x27;✅&#x27; },
+    { to: &#x27;/admin/void-requests&#x27;, label: &#x27;طلبات الإلغاء&#x27;, icon: &#x27;🗑️&#x27; },
+    { to: &#x27;/admin/debts&#x27;, label: &#x27;الديون والسلف&#x27;, icon: &#x27;🧾&#x27; },
+    { to: &#x27;/admin/reports/daily&#x27;, label: &#x27;التقرير اليومي&#x27;, icon: &#x27;📅&#x27; },
+    { to: &#x27;/admin/reports&#x27;, label: &#x27;التقارير&#x27;, icon: &#x27;📈&#x27; },
+    { to: &#x27;/price-guide&#x27;, label: &#x27;دليل الأسعار&#x27;, icon: &#x27;💲&#x27; },
+  ],
+}
+
+const ROLE_LABEL = { admin: &#x27;Admin&#x27;, comptoir: &#x27;Comptoir&#x27;, technicien: &#x27;Technicien&#x27; }
+
+// Desktop (lg and up): fixed column, always visible, exactly like before.
+// Mobile: hidden off-screen, slides in from the left as a drawer when `open`
+// is true, with a dark overlay behind it. `onClose` is called on the X, on
+// the overlay, and after tapping any nav link (so the menu closes on
+// navigation instead of staying open over the new page).
+export default function Sidebar({ open = false, onClose = () =&gt; {} }) {
+  const { profile, logout } = useAuth()
+  const navigate = useNavigate()
+  const items = NAV_BY_ROLE[profile?.role] || []
+
+  async function handleLogout() {
+    await logout()
+    navigate(&#x27;/login&#x27;)
+  }
+
+  return (
+    &lt;&gt;
+      {open &amp;&amp; (
+        &lt;div
+          className=&quot;lg:hidden fixed inset-0 bg-black/50 z-40&quot;
+          onClick={onClose}
+          aria-hidden=&quot;true&quot;
+        /&gt;
+      )}
+
+      &lt;aside
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-[250px] max-w-[80vw] shrink-0
+          bg-[#1a1a1a] text-[#e8e8e8] flex flex-col p-6 overflow-y-auto
+          transition-transform duration-200 ease-out
+          lg:translate-x-0 lg:w-[230px]
+          ${open ? &#x27;translate-x-0&#x27; : &#x27;-translate-x-full&#x27;}`}
+      &gt;
+        &lt;div className=&quot;flex items-center justify-between&quot;&gt;
+          &lt;div className=&quot;flex items-center gap-3&quot;&gt;
+            &lt;img src={logo} alt=&quot;Mobile 4 You&quot; className=&quot;w-10 h-10 rounded-lg object-cover shrink-0&quot; /&gt;
+            &lt;span className=&quot;text-[13.5px] font-extrabold text-white tracking-wide leading-tight&quot;&gt;
+              MOBILE 4 YOU
+            &lt;/span&gt;
+          &lt;/div&gt;
+          &lt;button
+            onClick={onClose}
+            className=&quot;lg:hidden text-[#c3c3c3] hover:text-white text-2xl leading-none px-1 -mr-1&quot;
+            aria-label=&quot;إغلاق القائمة&quot;
+          &gt;
+            ×
+          &lt;/button&gt;
+        &lt;/div&gt;
+
+        &lt;nav className=&quot;mt-9 flex flex-col gap-0.5&quot;&gt;
+          {items.map((item) =&gt; (
+            &lt;NavLink
+              key={item.to}
+              to={item.to}
+              end
+              onClick={onClose}
+              className={({ isActive }) =&gt;
+                `flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  isActive
+                    ? &#x27;bg-[#e4211b]/20 text-[#ff8f89] font-semibold border-r-[3px] border-[#e4211b]&#x27;
+                    : &#x27;text-[#c3c3c3] hover:bg-white/5&#x27;
+                }`
+              }
+            &gt;
+              &lt;span&gt;{item.icon}&lt;/span&gt;
+              &lt;span&gt;{item.label}&lt;/span&gt;
+            &lt;/NavLink&gt;
+          ))}
+        &lt;/nav&gt;
+
+        &lt;div className=&quot;mt-auto pt-4 border-t border-white/10 text-xs text-[#9a9a9a]&quot;&gt;
+          &lt;p&gt;مسجل دخول كـ: {ROLE_LABEL[profile?.role] || profile?.role}&lt;/p&gt;
+          {profile?.full_name &amp;&amp; &lt;p className=&quot;mt-1 text-[#c3c3c3]&quot;&gt;{profile.full_name}&lt;/p&gt;}
+          &lt;button onClick={handleLogout} className=&quot;mt-3 text-[#ff8f89] hover:text-white text-xs&quot;&gt;
+            تسجيل الخروج
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/aside&gt;
+    &lt;/&gt;
+  )
+}
+</pre></div>
+<h3>src/routes/AppRoutes.jsx</h3> <span class="tag">UPDATED — full file</span><p class="n"><b>What changed:</b> <code>/price-guide</code> was registered three times (once inside each role wrapper), so React Router matched the first wrapper and a technicien was sent to /unauthorized. It is now registered <b>once</b>, in its own wrapper listing admin, comptoir and technicien. This is the same final file as section 4 (all Phase 1–3 routes included) — replace your AppRoutes.jsx with it. The older copies in sections 2 and 4 are left as history.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { BrowserRouter, Routes, Route, Navigate } from &#x27;react-router-dom&#x27;
+import { AuthProvider } from &#x27;../context/AuthContext&#x27;
+import ProtectedRoute from &#x27;../components/layout/ProtectedLayout&#x27;
+
+import Login from &#x27;../pages/Login&#x27;
+import TrackOrder from &#x27;../pages/public/TrackOrder&#x27;
+
+import ComptoirDashboard from &#x27;../pages/comptoir/ComptoirDashboard&#x27;
+import NewRepairOrder from &#x27;../pages/comptoir/NewRepairOrder&#x27;
+import SellAccessory from &#x27;../pages/comptoir/SellAccessory&#x27;
+
+import TechnicienDashboard from &#x27;../pages/technicien/TechnicienDashboard&#x27;
+import RepairDetails from &#x27;../pages/technicien/RepairDetails&#x27;
+
+import LogRepairExpense from &#x27;../pages/shared/LogRepairExpense&#x27;
+import GeneralExpenses from &#x27;../pages/shared/GeneralExpenses&#x27;
+
+import AdminDashboard from &#x27;../pages/admin/AdminDashboard&#x27;
+import UsersManagement from &#x27;../pages/admin/UsersManagement&#x27;
+import AccessoriesManagement from &#x27;../pages/admin/AccessoriesManagement&#x27;
+import ExpensesApproval from &#x27;../pages/admin/ExpensesApproval&#x27;
+import Reports from &#x27;../pages/admin/Reports&#x27;
+import DailyReport from &#x27;../pages/admin/DailyReport&#x27;
+
+import Caisse from &#x27;../pages/caisse/Caisse&#x27;
+import Debts from &#x27;../pages/shared/Debts&#x27;
+import VoidRequests from &#x27;../pages/admin/VoidRequests&#x27;
+import PriceGuide from &#x27;../pages/shared/PriceGuide&#x27;
+
+export default function AppRoutes() {
+  return (
+    &lt;BrowserRouter&gt;
+      &lt;AuthProvider&gt;
+        &lt;Routes&gt;
+          &lt;Route path=&quot;/&quot; element={&lt;Navigate to=&quot;/login&quot; replace /&gt;} /&gt;
+          &lt;Route path=&quot;/login&quot; element={&lt;Login /&gt;} /&gt;
+          &lt;Route path=&quot;/track/:access_token&quot; element={&lt;TrackOrder /&gt;} /&gt;
+
+          {/* Shared by all three roles — registered ONCE.
+              (Registering the same path inside each role wrapper makes React Router
+              match the first wrapper only, and a role not in it is sent to /unauthorized.) */}
+          &lt;Route element={&lt;ProtectedRoute allowedRoles={[&#x27;admin&#x27;, &#x27;comptoir&#x27;, &#x27;technicien&#x27;]} /&gt;}&gt;
+            &lt;Route path=&quot;/price-guide&quot; element={&lt;PriceGuide /&gt;} /&gt;
+          &lt;/Route&gt;
+
+          {/* Comptoir + Admin */}
+          &lt;Route element={&lt;ProtectedRoute allowedRoles={[&#x27;admin&#x27;, &#x27;comptoir&#x27;]} /&gt;}&gt;
+            &lt;Route path=&quot;/comptoir&quot; element={&lt;ComptoirDashboard /&gt;} /&gt;
+            &lt;Route path=&quot;/comptoir/new-order&quot; element={&lt;NewRepairOrder /&gt;} /&gt;
+            &lt;Route path=&quot;/comptoir/sell&quot; element={&lt;SellAccessory /&gt;} /&gt;
+            &lt;Route path=&quot;/comptoir/expenses&quot; element={&lt;LogRepairExpense /&gt;} /&gt;
+            &lt;Route path=&quot;/comptoir/general-expenses&quot; element={&lt;GeneralExpenses /&gt;} /&gt;
+            &lt;Route path=&quot;/caisse&quot; element={&lt;Caisse /&gt;} /&gt;
+            &lt;Route path=&quot;/comptoir/debts&quot; element={&lt;Debts /&gt;} /&gt;
+          &lt;/Route&gt;
+
+          {/* Technicien + Admin */}
+          &lt;Route element={&lt;ProtectedRoute allowedRoles={[&#x27;admin&#x27;, &#x27;technicien&#x27;]} /&gt;}&gt;
+            &lt;Route path=&quot;/technicien&quot; element={&lt;TechnicienDashboard /&gt;} /&gt;
+            &lt;Route path=&quot;/technicien/order/:id&quot; element={&lt;RepairDetails /&gt;} /&gt;
+            &lt;Route path=&quot;/technicien/expenses&quot; element={&lt;LogRepairExpense /&gt;} /&gt;
+            &lt;Route path=&quot;/technicien/general-expenses&quot; element={&lt;GeneralExpenses /&gt;} /&gt;
+          &lt;/Route&gt;
+
+          {/* Admin only */}
+          &lt;Route element={&lt;ProtectedRoute allowedRoles={[&#x27;admin&#x27;]} /&gt;}&gt;
+            &lt;Route path=&quot;/admin&quot; element={&lt;AdminDashboard /&gt;} /&gt;
+            &lt;Route path=&quot;/admin/users&quot; element={&lt;UsersManagement /&gt;} /&gt;
+            &lt;Route path=&quot;/admin/accessories&quot; element={&lt;AccessoriesManagement /&gt;} /&gt;
+            &lt;Route path=&quot;/admin/expenses&quot; element={&lt;LogRepairExpense /&gt;} /&gt;
+            &lt;Route path=&quot;/admin/general-expenses&quot; element={&lt;GeneralExpenses /&gt;} /&gt;
+            &lt;Route path=&quot;/admin/expenses-approval&quot; element={&lt;ExpensesApproval /&gt;} /&gt;
+            &lt;Route path=&quot;/admin/void-requests&quot; element={&lt;VoidRequests /&gt;} /&gt;
+            &lt;Route path=&quot;/admin/debts&quot; element={&lt;Debts /&gt;} /&gt;
+            &lt;Route path=&quot;/admin/reports&quot; element={&lt;Reports /&gt;} /&gt;
+            &lt;Route path=&quot;/admin/reports/daily&quot; element={&lt;DailyReport /&gt;} /&gt;
+          &lt;/Route&gt;
+
+          &lt;Route
+            path=&quot;/unauthorized&quot;
+            element={&lt;p style={{ padding: 40 }}&gt;غير مصرح لك بالوصول لهذي الصفحة&lt;/p&gt;}
+          /&gt;
+        &lt;/Routes&gt;
+      &lt;/AuthProvider&gt;
+    &lt;/BrowserRouter&gt;
+  )
+}
+</pre></div><h3>Test</h3><ol>
+<li>As admin, open دليل الأسعار → + إضافة سعر → "iPhone 13" / "شاشة" / "أصلي" / من 250، إلى فارغ → save. Add a second row, same model: "شاشة" / "نسخة درجة أولى" / من 80 إلى 100.</li>
+<li>Both rows group under one "iPhone 13" header. The first shows "250.00 د.ت", the second shows "80.00 - 100.00 د.ت".</li>
+<li>Each row shows "آخر تعديل: [your name] · [today's date]".</li>
+<li>Log in as <b>technicien</b> → open the page → confirm you land on the page (not /unauthorized), see "+ إضافة سعر" and a ✏️ تعديل button on every row, and can edit a row from the bottom sheet. The "آخر تعديل" name should now switch to the technicien's name on the row you changed.</li>
+<li>Log in as <b>comptoir</b> → confirm you can search and see prices, but there is no "+ إضافة سعر" button and no "تعديل" link anywhere.</li>
+<li>Search "13" → only iPhone 13 rows remain. Clear it, tap the "شاشة" chip → only screen rows across all models show.</li>
+</ol>
+<h2 id="s11">11. Phase 3 — المخزون + الإكسسوارات + البيع المباشر</h2>
+<p>The <code>accessories</code>, <code>phone_details</code> and <code>accessory_sales</code> tables already existed from Phase 1 (created but unused). This phase adds the RLS, the storage bucket for product photos, the two real pages, and one function that does a whole sale atomically.</p>
+<div class="box"><b>How a sale works, in one call:</b> comptoir picks a product and quantity on <code>SellAccessory.jsx</code> → the app calls <code>sell_accessory()</code> → that single SECURITY DEFINER function checks stock, writes the <code>accessory_sales</code> row, decrements <code>accessories.stock_quantity</code>, and writes the Caisse income row — all or nothing. <b>Voiding</b> that sale later from the Caisse page (the same void-request flow from Phase 2) automatically puts the stock back.</p>
+<p>Phones are treated as a special case throughout: quantity is locked to 1, they have their own IMEI/battery/warranty fields (<code>phone_details</code>), and they're excluded from the low-stock alert since "low stock" doesn't mean anything for a single unique unit.</p>
+</div>
+
+<h3>What "Public bucket" means, and whether it costs anything</h3>
+<p>A Storage bucket is just a folder for files (here, product photos). "Public" means anyone with the exact photo link can view it directly — the same way any website's images work — without your app having to log in or ask Supabase for permission first. The alternative, a private bucket, needs a "signed URL" (a temporary, expiring link your app has to request every time) — more secure for sensitive files, but unnecessary overhead for ordinary product photos no one is trying to hide. Public here just means "browsable with a direct link," not "listed somewhere publicly" — nobody finds these photos unless your app shows them a link.</p>
+<p>On the free Supabase plan, Storage gives <b>1 GB</b> of space and <b>5 GB</b> of monthly bandwidth. A phone-camera photo is usually 1 to 4 MB; even compressed product shots average a few hundred KB. That puts you at several hundred to a few thousand photos before 1 GB fills up — for a single repair shop's accessories and phones, that's a long way off. If it ever becomes a concern, resizing photos to around 800px wide before upload (most phones can do this when picking a file) cuts that size by 5 to 10×. One extra thing worth knowing: a free-tier Supabase project pauses itself after a week with no activity at all — not a storage issue, just something to be aware of if the shop ever closes for a long stretch.</p>
+
+<h3>Dashboard step first — create the storage bucket</h3>
+<p class="n">SQL can't create a Storage bucket by itself the first time. Do this once before running Script K:</p>
+<ol><li>Supabase → <b>Storage</b> → <b>New bucket</b></li>
+<li>Name it exactly <code>product-images</code></li>
+<li>Toggle <b>Public bucket</b> ON (so product photos load without a signed URL)</li>
+<li>Create it, then run Script K below — it adds the access policies for that bucket.</li></ol>
+
+<h3>SQL Script K — RLS, sell_accessory(), void-restock trigger, storage policies</h3>
+<p class="n">Run after Script J. Starts with a safe "guard" block (adds any missing accessories / phone_details columns) and ends by reloading the Supabase schema cache — so it also repairs a database whose accessories table was created from an older version.</p>
+<div class="cb"><button onclick="cp(this)">Copy</button><pre>-- ============================================================
+-- K) PHASE 3 — accessories + phone_details + accessory_sales
+--    Tables already exist from Phase 1 (unused until now). This adds
+--    RLS, the storage bucket for product photos, and one SECURITY
+--    DEFINER function that does a whole sale atomically: decrements
+--    stock, writes the sale row, and writes the Caisse income row.
+--    A voided sale automatically restocks the item.
+-- ============================================================
+
+-- ---- 0) guard: make sure the columns this phase uses exist (safe to re-run) ----
+-- Phase 1 created these tables, but an older copy of the table may be missing
+-- columns; the app then fails with &quot;Could not find the &#x27;x&#x27; column in the schema cache&quot;.
+alter table accessories add column if not exists category text default &#x27;accessory&#x27;;
+alter table accessories add column if not exists image_url text;
+alter table accessories add column if not exists sold_quantity integer not null default 0;
+alter table accessories add column if not exists low_stock_threshold integer default 3;
+alter table accessories add column if not exists supplier text;
+alter table accessories add column if not exists color text;
+alter table accessories add column if not exists is_deleted boolean default false;
+create table if not exists phone_details (
+  id uuid default gen_random_uuid() primary key,
+  accessory_id uuid references accessories(id) unique not null,
+  imei text unique,
+  condition text check (condition in (&#x27;new&#x27;,&#x27;used&#x27;)),
+  battery_health integer,
+  internal_warranty_days integer default 0,
+  source_type text check (source_type in (&#x27;supplier&#x27;,&#x27;client_trade_in&#x27;)),
+  source_details text,
+  created_at timestamp with time zone default now()
+);
+alter table phone_details add column if not exists internal_warranty_days integer default 0;
+alter table phone_details add column if not exists source_type text;
+alter table phone_details add column if not exists source_details text;
+
+-- ---- accessories ----
+alter table accessories enable row level security;
+drop policy if exists &quot;view accessories&quot; on accessories;
+drop policy if exists &quot;admin manages accessories&quot; on accessories;
+
+create policy &quot;view accessories&quot; on accessories
+  for select using (get_my_role() in (&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;comptoir&#x27;,&#x27;technicien&#x27;));
+
+create policy &quot;admin manages accessories&quot; on accessories
+  for insert with check (get_my_role() in (&#x27;admin&#x27;,&#x27;super_admin&#x27;));
+create policy &quot;admin updates accessories&quot; on accessories
+  for update using (get_my_role() in (&#x27;admin&#x27;,&#x27;super_admin&#x27;));
+-- no delete policy: use is_deleted (soft delete) — sales keep pointing at a real row
+
+-- ---- phone_details ----
+alter table phone_details enable row level security;
+drop policy if exists &quot;view phone details&quot; on phone_details;
+drop policy if exists &quot;admin manages phone details&quot; on phone_details;
+
+create policy &quot;view phone details&quot; on phone_details
+  for select using (get_my_role() in (&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;comptoir&#x27;,&#x27;technicien&#x27;));
+create policy &quot;admin manages phone details&quot; on phone_details
+  for all using (get_my_role() in (&#x27;admin&#x27;,&#x27;super_admin&#x27;))
+  with check (get_my_role() in (&#x27;admin&#x27;,&#x27;super_admin&#x27;));
+
+-- ---- accessory_sales ----
+alter table accessory_sales enable row level security;
+drop policy if exists &quot;view accessory sales&quot; on accessory_sales;
+create policy &quot;view accessory sales&quot; on accessory_sales
+  for select using (get_my_role() in (&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;comptoir&#x27;));
+-- deliberately NO insert policy: rows are only created by sell_accessory() below,
+-- which runs as SECURITY DEFINER and bypasses RLS — same pattern as debt_payments
+
+-- ---- sell one item (accessory or phone), atomically ----
+create or replace function sell_accessory(
+  p_accessory_id uuid, p_quantity integer, p_client_id uuid default null,
+  p_payment_method text default &#x27;cash&#x27;
+) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  a accessories;
+  sale_id uuid;
+  ct_id uuid;
+begin
+  if get_my_role() not in (&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;comptoir&#x27;) then
+    raise exception &#x27;not allowed&#x27;;
+  end if;
+  select * into a from accessories where id = p_accessory_id and not is_deleted for update;
+  if not found then raise exception &#x27;product not found&#x27;; end if;
+  if p_quantity &lt;= 0 then raise exception &#x27;quantity must be positive&#x27;; end if;
+  if a.category = &#x27;phone&#x27; and p_quantity &lt;&gt; 1 then raise exception &#x27;a phone is sold one at a time&#x27;; end if;
+  if a.stock_quantity &lt; p_quantity then raise exception &#x27;not enough stock (% left)&#x27;, a.stock_quantity; end if;
+
+  insert into accessory_sales (accessory_id, client_id, quantity, unit_price, total, payment_method, seller_id, stock_after)
+  values (p_accessory_id, p_client_id, p_quantity, a.sale_price, a.sale_price * p_quantity,
+          p_payment_method, auth.uid(), a.stock_quantity - p_quantity)
+  returning id into sale_id;
+
+  update accessories
+     set stock_quantity = stock_quantity - p_quantity,
+         sold_quantity  = sold_quantity + p_quantity
+   where id = p_accessory_id;
+
+  insert into cash_transactions (type, source_type, reference_id, amount, performed_by, description)
+  values (&#x27;accessory_sale&#x27;, case when a.category = &#x27;phone&#x27; then &#x27;phone_sale&#x27; else &#x27;accessory_sale&#x27; end,
+          sale_id, a.sale_price * p_quantity, auth.uid(),
+          a.name || case when p_quantity &gt; 1 then &#x27; × &#x27; || p_quantity else &#x27;&#x27; end)
+  returning id into ct_id;
+
+  return sale_id;
+end $$;
+
+-- ---- voiding a sale (via the existing void_requests flow in Caisse) puts stock back ----
+create or replace function restock_on_void()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare s accessory_sales;
+begin
+  if new.is_void and not old.is_void and new.source_type in (&#x27;accessory_sale&#x27;,&#x27;phone_sale&#x27;) then
+    select * into s from accessory_sales where id = new.reference_id;
+    if found then
+      update accessories
+         set stock_quantity = stock_quantity + s.quantity,
+             sold_quantity  = greatest(0, sold_quantity - s.quantity)
+       where id = s.accessory_id;
+    end if;
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_restock_on_void on cash_transactions;
+create trigger trg_restock_on_void after update on cash_transactions
+  for each row execute procedure restock_on_void();
+
+-- ---- product photos: storage bucket + policies ----
+-- Dashboard step first (SQL can&#x27;t create the bucket itself the first time):
+-- Supabase → Storage → New bucket → name it exactly  product-images  → Public bucket = ON.
+-- Then run the policies below.
+drop policy if exists &quot;public read product images&quot; on storage.objects;
+drop policy if exists &quot;admin uploads product images&quot; on storage.objects;
+drop policy if exists &quot;admin updates product images&quot; on storage.objects;
+drop policy if exists &quot;admin deletes product images&quot; on storage.objects;
+
+create policy &quot;public read product images&quot; on storage.objects
+  for select using (bucket_id = &#x27;product-images&#x27;);
+create policy &quot;admin uploads product images&quot; on storage.objects
+  for insert with check (bucket_id = &#x27;product-images&#x27; and get_my_role() in (&#x27;admin&#x27;,&#x27;super_admin&#x27;));
+create policy &quot;admin updates product images&quot; on storage.objects
+  for update using (bucket_id = &#x27;product-images&#x27; and get_my_role() in (&#x27;admin&#x27;,&#x27;super_admin&#x27;));
+create policy &quot;admin deletes product images&quot; on storage.objects
+  for delete using (bucket_id = &#x27;product-images&#x27; and get_my_role() in (&#x27;admin&#x27;,&#x27;super_admin&#x27;));
+
+-- verify (read-only)
+select tablename, policyname, cmd from pg_policies
+where tablename in (&#x27;accessories&#x27;,&#x27;phone_details&#x27;,&#x27;accessory_sales&#x27;) order by 1,3;
+select proname, prosecdef from pg_proc where proname in (&#x27;sell_accessory&#x27;,&#x27;restock_on_void&#x27;);
+
+-- ---- last step: refresh Supabase&#x27;s schema cache ----
+-- Without this, Supabase can keep showing &quot;column not found&quot; even after the column exists.
+notify pgrst, &#x27;reload schema&#x27;;
+</pre></div>
+<h3>SQL Script K0 — guard + schema reload (standalone)</h3> <span class="tag">NEW</span>
+<p class="n">Same guard block that sits at the top of Script K, as its own small script. Use it to <b>repair an existing database</b> without re-running all of K: it adds any missing <code>accessories</code> / <code>phone_details</code> columns (<code>category</code>, <code>internal_warranty_days</code>, etc.), creates <code>phone_details</code> if absent, and ends with <code>notify pgrst, 'reload schema'</code> so Supabase stops showing "Could not find the 'x' column in the schema cache". Safe to re-run. <b>Also adds <code>accessories.color</code> (needed by the redesigned inventory page) — run it once even if Script K already ran.</b> On a brand-new project you do not need it — Script K already includes it.</p>
+<div class="cb"><button onclick="cp(this)">Copy</button><pre>-- ---- 0) guard: make sure the columns this phase uses exist (safe to re-run) ----
+-- Phase 1 created these tables, but an older copy of the table may be missing
+-- columns; the app then fails with &quot;Could not find the &#x27;x&#x27; column in the schema cache&quot;.
+alter table accessories add column if not exists category text default &#x27;accessory&#x27;;
+alter table accessories add column if not exists image_url text;
+alter table accessories add column if not exists sold_quantity integer not null default 0;
+alter table accessories add column if not exists low_stock_threshold integer default 3;
+alter table accessories add column if not exists supplier text;
+alter table accessories add column if not exists color text;            -- product color (added with the inventory redesign)
+alter table accessories add column if not exists is_deleted boolean default false;
+create table if not exists phone_details (
+  id uuid default gen_random_uuid() primary key,
+  accessory_id uuid references accessories(id) unique not null,
+  imei text unique,
+  condition text check (condition in (&#x27;new&#x27;,&#x27;used&#x27;)),
+  battery_health integer,
+  internal_warranty_days integer default 0,
+  source_type text check (source_type in (&#x27;supplier&#x27;,&#x27;client_trade_in&#x27;)),
+  source_details text,
+  created_at timestamp with time zone default now()
+);
+alter table phone_details add column if not exists internal_warranty_days integer default 0;
+alter table phone_details add column if not exists source_type text;
+alter table phone_details add column if not exists source_details text;
+
+-- (run after the rest of Script K, or on its own to repair an old table)
+-- ---- last step: refresh Supabase&#x27;s schema cache ----
+-- Without this, Supabase can keep showing &quot;column not found&quot; even after the column exists.
+notify pgrst, &#x27;reload schema&#x27;;
+</pre></div>
+
+
+
+<h3>src/lib/productColors.js</h3> <span class="tag">NEW</span><p class="n">The color list (label → hex) and <code>colorHex()</code>. Lives in its own file because a component file must export only components — otherwise Vite shows "Fast refresh only works when a file only exports components". Create this file first.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>// Product colors: the label is what gets saved in accessories.color (free text is allowed too);
+// the hex is only used to draw the little colored dot.
+// Kept in its own file (not in ColorDot.jsx) so React Fast Refresh keeps working:
+// a component file must export only components.
+export const COLORS = [
+  [&#x27;أسود&#x27;, &#x27;#1a1a1a&#x27;], [&#x27;أبيض&#x27;, &#x27;#ffffff&#x27;], [&#x27;رمادي&#x27;, &#x27;#8e8e93&#x27;], [&#x27;فضي&#x27;, &#x27;#c9ccd1&#x27;],
+  [&#x27;ذهبي&#x27;, &#x27;#d9b36c&#x27;], [&#x27;أزرق&#x27;, &#x27;#2f6fed&#x27;], [&#x27;أخضر&#x27;, &#x27;#2e9e5b&#x27;], [&#x27;أحمر&#x27;, &#x27;#e4211b&#x27;],
+  [&#x27;وردي&#x27;, &#x27;#f08fb4&#x27;], [&#x27;بنفسجي&#x27;, &#x27;#8e5bd9&#x27;], [&#x27;برتقالي&#x27;, &#x27;#f28c28&#x27;], [&#x27;بنّي&#x27;, &#x27;#7a5230&#x27;],
+]
+
+export function colorHex(label) {
+  if (!label) return null
+  const l = label.trim()
+  const exact = COLORS.find(([n]) =&gt; n === l)
+  if (exact) return exact[1]
+  const part = COLORS.find(([n]) =&gt; l.includes(n)) // e.g. &quot;أسود لامع&quot;
+  return part ? part[1] : &#x27;#c9c9c0&#x27; // unknown color name -&gt; neutral grey dot
+}
+</pre></div>
+<h3>src/components/shared/ColorDot.jsx</h3> <span class="tag">NEW</span><p class="n">The small <code>● أسود</code> dot used on inventory and sell screens. Exports only the component; imports <code>colorHex</code> from productColors.js. AccessoriesManagement.jsx and SellAccessory.jsx import it.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { colorHex } from &#x27;../../lib/productColors&#x27;
+
+// &lt;ColorDot label=&quot;أسود&quot; /&gt;  -&gt; ● أسود   (renders nothing when there is no color)
+// Only the component is exported from this file (Fast Refresh requirement);
+// the color list and colorHex() live in src/lib/productColors.js.
+export default function ColorDot({ label, className = &#x27;&#x27; }) {
+  const hex = colorHex(label)
+  if (!hex) return null
+  return (
+    &lt;span className={`inline-flex items-center gap-1.5 text-xs text-[#6b6b6b] ${className}`}&gt;
+      &lt;span className=&quot;w-3 h-3 rounded-full border border-black/15 shrink-0&quot; style={{ background: hex }} aria-hidden=&quot;true&quot; /&gt;
+      {label}
+    &lt;/span&gt;
+  )
+}
+</pre></div>
+<h3>src/lib/phoneDetails.js</h3> <span class="tag">NEW</span><p class="n"><code>phoneOf(item)</code> reads <code>phone_details</code> whether Supabase returns an object (one-to-one) or an array, plus Arabic labels for condition/source. Use it everywhere instead of <code>phone_details[0]</code>.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>// Supabase returns the embedded phone_details row as a single OBJECT when accessory_id is UNIQUE
+// (one-to-one), and as an ARRAY otherwise. Code that did a.phone_details?.[0] therefore read
+// &quot;nothing&quot; and the IMEI looked empty. This helper handles both shapes.
+export function phoneOf(item) {
+  const pd = item?.phone_details
+  if (!pd) return null
+  return Array.isArray(pd) ? pd[0] || null : pd
+}
+
+export const CONDITION_LABEL = { new: &#x27;جديد&#x27;, used: &#x27;مستعمل&#x27; }
+export const SOURCE_LABEL = { supplier: &#x27;مورّد&#x27;, client_trade_in: &#x27;شراء من حريف&#x27; }
+</pre></div>
+<h3>src/components/shared/PhoneInfo.jsx</h3> <span class="tag">NEW</span><p class="n">Condition / battery / warranty chips and the IMEI line for a phone. <code>full</code> adds warranty + IMEI. Used on the inventory (admin) and sell (comptoir) screens.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { phoneOf, CONDITION_LABEL } from &#x27;../../lib/phoneDetails&#x27;
+
+// Phone details chips. compact (default): condition + battery.
+// full: also warranty days and the IMEI line — used where staff need every detail.
+// Never shows purchase price, supplier or where the phone was bought from.
+export default function PhoneInfo({ item, full = false, className = &#x27;&#x27; }) {
+  const pd = phoneOf(item)
+  if (item?.category !== &#x27;phone&#x27; || !pd) return null
+  const chip = &#x27;text-[11px] font-semibold rounded-full px-2 py-0.5 whitespace-nowrap&#x27;
+  return (
+    &lt;div className={className}&gt;
+      &lt;div className=&quot;flex flex-wrap gap-1.5&quot;&gt;
+        {pd.condition &amp;&amp; (
+          &lt;span className={`${chip} ${pd.condition === &#x27;new&#x27; ? &#x27;bg-[#e8f6ee] text-[#1f8a4c]&#x27; : &#x27;bg-[#f3f1ea] text-[#6b6b6b]&#x27;}`}&gt;
+            {CONDITION_LABEL[pd.condition] || pd.condition}
+          &lt;/span&gt;
+        )}
+        {pd.battery_health != null &amp;&amp; (
+          &lt;span className={`${chip} bg-[#f3f1ea] text-[#6b6b6b]`}&gt;🔋 {pd.battery_health}%&lt;/span&gt;
+        )}
+        {full &amp;&amp; Number(pd.internal_warranty_days) &gt; 0 &amp;&amp; (
+          &lt;span className={`${chip} bg-[#eaf1fe] text-[#2f6fed]`}&gt;🛡️ ضمان {pd.internal_warranty_days} يوم&lt;/span&gt;
+        )}
+      &lt;/div&gt;
+      {full &amp;&amp; pd.imei &amp;&amp; (
+        &lt;p className=&quot;text-xs text-[#6b6b6b] mt-1.5&quot; dir=&quot;ltr&quot;&gt;IMEI: &lt;span className=&quot;font-semibold text-[#1a1a1a]&quot;&gt;{pd.imei}&lt;/span&gt;&lt;/p&gt;
+      )}
+    &lt;/div&gt;
+  )
+}
+</pre></div>
+
+<h3>src/pages/admin/AccessoriesManagement.jsx</h3> <span class="tag">UPDATED — full file</span><p class="n">Add/edit products; first question is "إكسسوار ولا هاتف؟" (هاتف reveals IMEI, battery %, condition, warranty days, source). Soft delete keeps old sales intact. <br><b>Redesign:</b> color swatches + free text (<code>accessories.color</code>), custom <code>ImagePicker</code> instead of the raw file input, bottom-sheet form with sticky save bar, cards with type pill / color dot / stock badge / ✏️ تعديل. <br><b>Bug fixed — IMEI looked empty when editing:</b> because <code>phone_details.accessory_id</code> is UNIQUE, Supabase returns the embedded row as one object, not a list, so <code>a.phone_details?.[0]</code> read nothing (the IMEI was saved fine, just never read back). It now uses <code>phoneOf()</code>, which accepts both shapes. Phone cards also show condition / battery / warranty chips. <b>Needs:</b> run Script K0 once (adds <code>color</code>); create <code>phoneDetails.js</code>, <code>PhoneInfo.jsx</code>, <code>productColors.js</code>, <code>ColorDot.jsx</code> first.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useMemo, useState } from &#x27;react&#x27;
+import { supabase } from &#x27;../../lib/supabaseClient&#x27;
+import LowStockAlert from &#x27;../shared/LowStockAlert&#x27;
+import ColorDot from &#x27;../../components/shared/ColorDot&#x27;
+import PhoneInfo from &#x27;../../components/shared/PhoneInfo&#x27;
+import { COLORS } from &#x27;../../lib/productColors&#x27;
+import { phoneOf } from &#x27;../../lib/phoneDetails&#x27;
+
+const MAX_IMAGE_MB = 5
+
+function emptyForm() {
+  return {
+    category: &#x27;accessory&#x27;, name: &#x27;&#x27;, color: &#x27;&#x27;, purchase_price: &#x27;&#x27;, sale_price: &#x27;&#x27;,
+    stock_quantity: &#x27;&#x27;, low_stock_threshold: 3, supplier: &#x27;&#x27;,
+    // phone-only fields
+    imei: &#x27;&#x27;, condition: &#x27;used&#x27;, battery_health: &#x27;&#x27;, internal_warranty_days: 0,
+    source_type: &#x27;supplier&#x27;, source_details: &#x27;&#x27;,
+  }
+}
+
+// ---- nicer file picker (replaces the browser&#x27;s raw &quot;Choisir un fichier&quot; input) ----
+function ImagePicker({ file, existingUrl, onPick, onRemove }) {
+  const [preview, setPreview] = useState(null)
+  useEffect(() =&gt; {
+    if (!file) { setPreview(null); return }
+    const url = URL.createObjectURL(file)
+    setPreview(url)
+    return () =&gt; URL.revokeObjectURL(url)
+  }, [file])
+
+  const shown = preview || existingUrl
+  return (
+    &lt;div className=&quot;flex items-center gap-3 border border-dashed border-[#d8d8d0] rounded-xl p-3 bg-[#faf9f5]&quot;&gt;
+      &lt;div className=&quot;w-20 h-20 rounded-lg bg-white border border-[#e5e5e5] overflow-hidden flex items-center justify-center shrink-0&quot;&gt;
+        {shown ? &lt;img src={shown} alt=&quot;&quot; className=&quot;w-full h-full object-cover&quot; /&gt; : &lt;span className=&quot;text-2xl opacity-50&quot; aria-hidden=&quot;true&quot;&gt;🖼️&lt;/span&gt;}
+      &lt;/div&gt;
+      &lt;div className=&quot;min-w-0 flex-1&quot;&gt;
+        &lt;label className=&quot;inline-flex items-center gap-2 min-h-[40px] px-4 rounded-lg bg-white border border-[#e5e5e5] text-sm font-semibold cursor-pointer hover:border-[#e4211b] hover:text-[#e4211b] active:bg-[#fdeaea] transition-colors&quot;&gt;
+          &lt;span aria-hidden=&quot;true&quot;&gt;📷&lt;/span&gt; {shown ? &#x27;تغيير الصورة&#x27; : &#x27;اختر أو صوّر صورة&#x27;}
+          &lt;input type=&quot;file&quot; accept=&quot;image/*&quot; className=&quot;sr-only&quot;
+            onChange={(e) =&gt; { onPick(e.target.files?.[0] || null); e.target.value = &#x27;&#x27; }} /&gt;
+        &lt;/label&gt;
+        &lt;p className=&quot;text-[11px] text-[#9a9a9a] mt-1.5 truncate&quot;&gt;
+          {file ? file.name : shown ? &#x27;الصورة الحالية&#x27; : `اختياري · حتى ${MAX_IMAGE_MB} MB`}
+        &lt;/p&gt;
+        {shown &amp;&amp; (
+          &lt;button type=&quot;button&quot; onClick={onRemove} className=&quot;text-[11px] font-semibold text-[#b3170f] mt-0.5&quot;&gt;إزالة الصورة&lt;/button&gt;
+        )}
+      &lt;/div&gt;
+    &lt;/div&gt;
+  )
+}
+
+function StockBadge({ a }) {
+  const out = a.stock_quantity &lt;= 0
+  const low = !out &amp;&amp; a.category === &#x27;accessory&#x27; &amp;&amp; a.low_stock_threshold != null &amp;&amp; a.stock_quantity &lt;= a.low_stock_threshold
+  const cls = out ? &#x27;bg-[#fdeaea] text-[#b3170f]&#x27; : low ? &#x27;bg-[#fff4e0] text-[#b36b00]&#x27; : &#x27;bg-[#e8f6ee] text-[#1f8a4c]&#x27;
+  return (
+    &lt;span className={`text-[11px] font-bold rounded-full px-2.5 py-1 whitespace-nowrap ${cls}`}&gt;
+      {out ? &#x27;نفد&#x27; : low ? `قليل · ${a.stock_quantity}` : `متوفر · ${a.stock_quantity}`}
+    &lt;/span&gt;
+  )
+}
+
+function TypePill({ category }) {
+  return (
+    &lt;span className=&quot;text-[11px] font-semibold text-[#6b6b6b] bg-[#f3f1ea] rounded-full px-2 py-0.5 whitespace-nowrap&quot;&gt;
+      {category === &#x27;phone&#x27; ? &#x27;📱 هاتف&#x27; : &#x27;🛍️ إكسسوار&#x27;}
+    &lt;/span&gt;
+  )
+}
+
+function Thumb({ a, size = &#x27;w-16 h-16&#x27; }) {
+  return a.image_url ? (
+    &lt;img src={a.image_url} alt=&quot;&quot; className={`${size} rounded-xl object-cover shrink-0 border border-[#e5e5e5]`} /&gt;
+  ) : (
+    &lt;div className={`${size} rounded-xl bg-[#f3f1ea] shrink-0 flex items-center justify-center text-xl`} aria-hidden=&quot;true&quot;&gt;
+      {a.category === &#x27;phone&#x27; ? &#x27;📱&#x27; : &#x27;🛍️&#x27;}
+    &lt;/div&gt;
+  )
+}
+
+function EditButton({ onClick }) {
+  return (
+    &lt;button type=&quot;button&quot; onClick={onClick}
+      className=&quot;inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-lg border border-[#e5e5e5] bg-white text-xs font-semibold text-[#1a1a1a] hover:border-[#e4211b] hover:text-[#e4211b] active:bg-[#fdeaea] transition-colors&quot;&gt;
+      &lt;span aria-hidden=&quot;true&quot;&gt;✏️&lt;/span&gt; تعديل
+    &lt;/button&gt;
+  )
+}
+
+export default function AccessoriesManagement() {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [search, setSearch] = useState(&#x27;&#x27;)
+  const [tab, setTab] = useState(&#x27;all&#x27;) // all | accessory | phone
+
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [form, setForm] = useState(emptyForm())
+  const [imageFile, setImageFile] = useState(null)
+  const [existingImageUrl, setExistingImageUrl] = useState(null)
+  const [removeImage, setRemoveImage] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState(null)
+
+  useEffect(() =&gt; { load() }, [])
+
+  useEffect(() =&gt; {
+    if (!showForm) return
+    const onKey = (e) =&gt; { if (e.key === &#x27;Escape&#x27; &amp;&amp; !saving) setShowForm(false) }
+    window.addEventListener(&#x27;keydown&#x27;, onKey)
+    return () =&gt; window.removeEventListener(&#x27;keydown&#x27;, onKey)
+  }, [showForm, saving])
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    const { data, error: e } = await supabase
+      .from(&#x27;accessories&#x27;)
+      .select(&#x27;id, category, name, color, image_url, purchase_price, sale_price, stock_quantity, sold_quantity, low_stock_threshold, supplier, is_deleted, phone_details(imei, condition, battery_health, internal_warranty_days, source_type, source_details)&#x27;)
+      .eq(&#x27;is_deleted&#x27;, false)
+      .order(&#x27;created_at&#x27;, { ascending: false })
+    if (e) setError(e.message)
+    setItems(data || [])
+    setLoading(false)
+  }
+
+  const counts = useMemo(() =&gt; ({
+    all: items.length,
+    accessory: items.filter((a) =&gt; a.category === &#x27;accessory&#x27;).length,
+    phone: items.filter((a) =&gt; a.category === &#x27;phone&#x27;).length,
+  }), [items])
+
+  const filtered = useMemo(() =&gt; {
+    const q = search.trim().toLowerCase()
+    return items.filter((a) =&gt; {
+      const matchesTab = tab === &#x27;all&#x27; || a.category === tab
+      const matchesText = !q
+        || a.name.toLowerCase().includes(q)
+        || (a.color || &#x27;&#x27;).toLowerCase().includes(q)
+        || (phoneOf(a)?.imei || &#x27;&#x27;).toLowerCase().includes(q)
+      return matchesTab &amp;&amp; matchesText
+    })
+  }, [items, search, tab])
+
+  function openAdd() {
+    setEditingId(null)
+    setForm(emptyForm())
+    setImageFile(null); setExistingImageUrl(null); setRemoveImage(false)
+    setFormError(null)
+    setShowForm(true)
+  }
+
+  function openEdit(a) {
+    const pd = phoneOf(a)
+    setEditingId(a.id)
+    setForm({
+      category: a.category, name: a.name, color: a.color || &#x27;&#x27;,
+      purchase_price: a.purchase_price, sale_price: a.sale_price,
+      stock_quantity: a.stock_quantity, low_stock_threshold: a.low_stock_threshold ?? 3,
+      supplier: a.supplier || &#x27;&#x27;,
+      imei: pd?.imei || &#x27;&#x27;, condition: pd?.condition || &#x27;used&#x27;,
+      battery_health: pd?.battery_health ?? &#x27;&#x27;, internal_warranty_days: pd?.internal_warranty_days ?? 0,
+      source_type: pd?.source_type || &#x27;supplier&#x27;, source_details: pd?.source_details || &#x27;&#x27;,
+    })
+    setImageFile(null); setExistingImageUrl(a.image_url); setRemoveImage(false)
+    setFormError(null)
+    setShowForm(true)
+  }
+
+  function pickImage(file) {
+    if (!file) return
+    if (file.size &gt; MAX_IMAGE_MB * 1024 * 1024) {
+      setFormError(`الصورة كبيرة برشا (الحد ${MAX_IMAGE_MB} MB)`)
+      return
+    }
+    setFormError(null)
+    setImageFile(file)
+    setRemoveImage(false)
+  }
+
+  async function uploadImageIfAny() {
+    if (removeImage &amp;&amp; !imageFile) return null
+    if (!imageFile) return existingImageUrl
+    const path = `${Date.now()}_${imageFile.name.replace(/\s+/g, &#x27;_&#x27;)}`
+    const { error: upErr } = await supabase.storage.from(&#x27;product-images&#x27;).upload(path, imageFile)
+    if (upErr) throw new Error(&#x27;فشل رفع الصورة: &#x27; + upErr.message)
+    const { data } = supabase.storage.from(&#x27;product-images&#x27;).getPublicUrl(path)
+    return data.publicUrl
+  }
+
+  async function submitForm(e) {
+    e.preventDefault()
+    setFormError(null)
+    const isPhone = form.category === &#x27;phone&#x27;
+    if (!form.name.trim() || Number(form.sale_price) &lt;= 0 || Number(form.purchase_price) &lt; 0) {
+      setFormError(&#x27;عمر الاسم وسعر الشراء وسعر البيع&#x27;)
+      return
+    }
+    if (isPhone &amp;&amp; !form.imei.trim()) {
+      setFormError(&#x27;عمر رقم IMEI للهاتف&#x27;)
+      return
+    }
+    setSaving(true)
+    try {
+      const image_url = await uploadImageIfAny()
+      const payload = {
+        category: form.category,
+        name: form.name.trim(),
+        color: form.color.trim() || null,
+        purchase_price: Number(form.purchase_price),
+        sale_price: Number(form.sale_price),
+        stock_quantity: isPhone ? 1 : Number(form.stock_quantity || 0),
+        low_stock_threshold: isPhone ? null : Number(form.low_stock_threshold || 3),
+        supplier: form.supplier.trim() || null,
+        image_url,
+      }
+
+      let accessoryId = editingId
+      if (editingId) {
+        const { error: err } = await supabase.from(&#x27;accessories&#x27;).update(payload).eq(&#x27;id&#x27;, editingId)
+        if (err) throw new Error(err.message)
+      } else {
+        const { data, error: err } = await supabase.from(&#x27;accessories&#x27;).insert(payload).select(&#x27;id&#x27;).single()
+        if (err) throw new Error(err.message)
+        accessoryId = data.id
+      }
+
+      if (isPhone) {
+        const { error: err } = await supabase.from(&#x27;phone_details&#x27;).upsert({
+          accessory_id: accessoryId,
+          imei: form.imei.trim(),
+          condition: form.condition,
+          battery_health: form.battery_health === &#x27;&#x27; ? null : Number(form.battery_health),
+          internal_warranty_days: Number(form.internal_warranty_days || 0),
+          source_type: form.source_type,
+          source_details: form.source_details.trim() || null,
+        }, { onConflict: &#x27;accessory_id&#x27; })
+        if (err) throw new Error(&#x27;تم حفظ المنتج لكن خطأ في تفاصيل الهاتف: &#x27; + err.message)
+      }
+
+      setShowForm(false)
+      load()
+    } catch (err) {
+      setFormError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function softDelete(id) {
+    if (!window.confirm(&#x27;حذف هذا المنتج؟ (يختفي من القوائم لكن يبقى في سجل المبيعات القديمة)&#x27;)) return
+    const { error: err } = await supabase.from(&#x27;accessories&#x27;).update({ is_deleted: true }).eq(&#x27;id&#x27;, id)
+    if (err) { alert(&#x27;ما نجحش: &#x27; + err.message); return }
+    setShowForm(false)
+    load()
+  }
+
+  const inp = &#x27;w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm bg-white focus:outline-none focus:border-[#e4211b] focus:ring-2 focus:ring-[#e4211b]/10&#x27;
+  const lbl = &#x27;block text-sm font-semibold mb-1.5&#x27;
+  const set = (k) =&gt; (e) =&gt; setForm({ ...form, [k]: e.target.value })
+
+  return (
+    &lt;div&gt;
+      {/* header */}
+      &lt;div className=&quot;flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end mb-6 pb-4 border-b border-[#e5e5e5]&quot;&gt;
+        &lt;div&gt;
+          &lt;h1 className=&quot;text-xl font-extrabold text-[#1a1a1a] mb-1&quot;&gt;المخزون&lt;/h1&gt;
+          &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;
+            إكسسوارات وهواتف للبيع المباشر
+            {counts.all &gt; 0 &amp;&amp; &lt;span className=&quot;text-[#9a9a9a]&quot;&gt; · {counts.all} منتج&lt;/span&gt;}
+          &lt;/p&gt;
+        &lt;/div&gt;
+        &lt;button onClick={openAdd}
+          className=&quot;w-full sm:w-auto bg-[#e4211b] text-white font-semibold text-sm px-5 py-2.5 rounded-lg shadow-sm active:scale-[0.98] transition&quot;&gt;
+          + إضافة منتج
+        &lt;/button&gt;
+      &lt;/div&gt;
+
+      &lt;LowStockAlert /&gt;
+
+      {/* search + tabs */}
+      &lt;div className=&quot;flex flex-col gap-3 mb-5&quot;&gt;
+        &lt;div className=&quot;relative&quot;&gt;
+          &lt;span className=&quot;absolute top-1/2 -translate-y-1/2 right-3.5 text-[#9a9a9a] pointer-events-none&quot; aria-hidden=&quot;true&quot;&gt;🔎&lt;/span&gt;
+          &lt;input value={search} onChange={(e) =&gt; setSearch(e.target.value)}
+            placeholder=&quot;فتّش بالاسم أو اللون أو IMEI&quot; className={inp + &#x27; pr-10 pl-10&#x27;} /&gt;
+          {search &amp;&amp; (
+            &lt;button onClick={() =&gt; setSearch(&#x27;&#x27;)} aria-label=&quot;مسح البحث&quot;
+              className=&quot;absolute top-1/2 -translate-y-1/2 left-2 w-7 h-7 rounded-full text-[#6b6b6b] hover:bg-[#f3f1ea]&quot;&gt;✕&lt;/button&gt;
+          )}
+        &lt;/div&gt;
+        &lt;div className=&quot;grid grid-cols-3 gap-1 bg-[#f3f1ea] rounded-xl p-1 sm:max-w-md&quot;&gt;
+          {[[&#x27;all&#x27;, &#x27;الكل&#x27;], [&#x27;accessory&#x27;, &#x27;🛍️ إكسسوارات&#x27;], [&#x27;phone&#x27;, &#x27;📱 هواتف&#x27;]].map(([v, l]) =&gt; (
+            &lt;button key={v} onClick={() =&gt; setTab(v)}
+              className={`text-xs sm:text-sm font-semibold py-2 rounded-lg transition-colors ${tab === v ? &#x27;bg-white text-[#e4211b] shadow-sm&#x27; : &#x27;text-[#6b6b6b]&#x27;}`}&gt;
+              {l} &lt;span className=&quot;opacity-60&quot;&gt;· {counts[v]}&lt;/span&gt;
+            &lt;/button&gt;
+          ))}
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      {error &amp;&amp; &lt;p className=&quot;bg-[#fdeaea] text-[#b3170f] text-sm rounded-lg px-4 py-3 mb-4&quot;&gt;{error}&lt;/p&gt;}
+
+      {/* list */}
+      {loading ? (
+        &lt;div className=&quot;flex flex-col gap-3&quot;&gt;
+          {[1, 2, 3].map((i) =&gt; &lt;div key={i} className=&quot;h-24 rounded-2xl bg-[#f3f1ea] animate-pulse&quot; /&gt;)}
+        &lt;/div&gt;
+      ) : filtered.length === 0 ? (
+        &lt;div className=&quot;bg-white border border-dashed border-[#d8d8d0] rounded-2xl p-10 text-center&quot;&gt;
+          &lt;p className=&quot;text-3xl mb-2&quot;&gt;📦&lt;/p&gt;
+          &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;{items.length === 0 ? &#x27;ما فماش منتجات بعد.&#x27; : &#x27;ما فماش نتائج لهذا البحث.&#x27;}&lt;/p&gt;
+        &lt;/div&gt;
+      ) : (
+        &lt;&gt;
+          {/* phone + tablet: cards */}
+          &lt;div className=&quot;lg:hidden flex flex-col gap-3&quot;&gt;
+            {filtered.map((a) =&gt; (
+              &lt;div key={a.id} className=&quot;bg-white border border-[#e5e5e5] rounded-2xl p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]&quot;&gt;
+                &lt;div className=&quot;flex gap-3&quot;&gt;
+                  &lt;Thumb a={a} /&gt;
+                  &lt;div className=&quot;min-w-0 flex-1&quot;&gt;
+                    &lt;p className=&quot;font-bold text-[#1a1a1a] text-sm break-words&quot;&gt;{a.name}&lt;/p&gt;
+                    &lt;div className=&quot;flex items-center flex-wrap gap-x-2 gap-y-1 mt-1&quot;&gt;
+                      &lt;TypePill category={a.category} /&gt;
+                      &lt;ColorDot label={a.color} /&gt;
+                    &lt;/div&gt;
+                    {phoneOf(a)?.imei &amp;&amp; (
+                      &lt;p className=&quot;text-[11px] text-[#9a9a9a] mt-1&quot; dir=&quot;ltr&quot;&gt;IMEI: {phoneOf(a).imei}&lt;/p&gt;
+                    )}
+                    &lt;PhoneInfo item={a} full className=&quot;mt-1.5&quot; /&gt;
+                  &lt;/div&gt;
+                &lt;/div&gt;
+                &lt;div className=&quot;flex items-center justify-between gap-2 mt-3 pt-3 border-t border-[#f0f0ea]&quot;&gt;
+                  &lt;div className=&quot;flex items-center gap-2&quot;&gt;
+                    &lt;StockBadge a={a} /&gt;
+                    &lt;span className=&quot;font-extrabold text-[#1f8a4c] text-sm bg-[#e8f6ee] rounded-lg px-2.5 py-1 whitespace-nowrap&quot;&gt;
+                      {Number(a.sale_price).toFixed(2)} د.ت
+                    &lt;/span&gt;
+                  &lt;/div&gt;
+                  &lt;EditButton onClick={() =&gt; openEdit(a)} /&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+            ))}
+          &lt;/div&gt;
+
+          {/* desktop: table */}
+          &lt;div className=&quot;hidden lg:block bg-white border border-[#e5e5e5] rounded-2xl overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)]&quot;&gt;
+            &lt;table className=&quot;w-full text-sm&quot;&gt;
+              &lt;thead&gt;
+                &lt;tr className=&quot;bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold&quot;&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;المنتج&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;النوع&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;المتوفر&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;سعر البيع&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;المورّد&lt;/th&gt;
+                  &lt;th className=&quot;px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;&lt;/th&gt;
+                &lt;/tr&gt;
+              &lt;/thead&gt;
+              &lt;tbody&gt;
+                {filtered.map((a) =&gt; (
+                  &lt;tr key={a.id} className=&quot;hover:bg-[#fbfaf6]&quot;&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#f0f0ea]&quot;&gt;
+                      &lt;div className=&quot;flex items-center gap-3&quot;&gt;
+                        &lt;Thumb a={a} size=&quot;w-11 h-11&quot; /&gt;
+                        &lt;div className=&quot;min-w-0&quot;&gt;
+                          &lt;p className=&quot;font-bold&quot;&gt;{a.name}&lt;/p&gt;
+                          &lt;div className=&quot;flex items-center gap-2 mt-0.5&quot;&gt;
+                            &lt;ColorDot label={a.color} /&gt;
+                            {phoneOf(a)?.imei &amp;&amp; (
+                              &lt;span className=&quot;text-[11px] text-[#9a9a9a]&quot; dir=&quot;ltr&quot;&gt;IMEI: {phoneOf(a).imei}&lt;/span&gt;
+                            )}
+                          &lt;/div&gt;
+                        &lt;/div&gt;
+                      &lt;/div&gt;
+                    &lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#f0f0ea]&quot;&gt;&lt;TypePill category={a.category} /&gt;&lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#f0f0ea]&quot;&gt;&lt;StockBadge a={a} /&gt;&lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#f0f0ea] font-extrabold text-[#1f8a4c]&quot;&gt;{Number(a.sale_price).toFixed(2)} د.ت&lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#f0f0ea] text-xs text-[#6b6b6b]&quot;&gt;{a.supplier || &#x27;—&#x27;}&lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#f0f0ea] text-left&quot;&gt;&lt;EditButton onClick={() =&gt; openEdit(a)} /&gt;&lt;/td&gt;
+                  &lt;/tr&gt;
+                ))}
+              &lt;/tbody&gt;
+            &lt;/table&gt;
+          &lt;/div&gt;
+        &lt;/&gt;
+      )}
+
+      {/* add / edit — bottom sheet on phone, centered dialog on desktop */}
+      {showForm &amp;&amp; (
+        &lt;div className=&quot;fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40&quot;
+          onClick={(e) =&gt; { if (e.target === e.currentTarget &amp;&amp; !saving) setShowForm(false) }}&gt;
+          &lt;form onSubmit={submitForm}
+            className=&quot;bg-white w-full sm:max-w-lg max-h-[94vh] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-xl&quot;&gt;
+            {/* sticky title */}
+            &lt;div className=&quot;flex items-center justify-between px-5 py-4 border-b border-[#e5e5e5] shrink-0&quot;&gt;
+              &lt;h3 className=&quot;font-extrabold text-base&quot;&gt;{editingId ? &#x27;✏️ تعديل المنتج&#x27; : &#x27;منتج جديد&#x27;}&lt;/h3&gt;
+              &lt;button type=&quot;button&quot; onClick={() =&gt; setShowForm(false)} aria-label=&quot;إغلاق&quot;
+                className=&quot;w-8 h-8 rounded-full text-[#6b6b6b] hover:bg-[#f3f1ea]&quot;&gt;✕&lt;/button&gt;
+            &lt;/div&gt;
+
+            {/* scrolling body */}
+            &lt;div className=&quot;overflow-y-auto px-5 py-4&quot;&gt;
+              {!editingId &amp;&amp; (
+                &lt;&gt;
+                  &lt;label className={lbl}&gt;إكسسوار ولا هاتف؟&lt;/label&gt;
+                  &lt;div className=&quot;grid grid-cols-2 gap-2 mb-4&quot;&gt;
+                    {[[&#x27;accessory&#x27;, &#x27;🛍️ إكسسوار&#x27;], [&#x27;phone&#x27;, &#x27;📱 هاتف&#x27;]].map(([v, l]) =&gt; (
+                      &lt;button type=&quot;button&quot; key={v} onClick={() =&gt; setForm({ ...form, category: v })}
+                        className={`text-sm font-semibold py-2.5 rounded-lg border transition-colors ${form.category === v ? &#x27;bg-[#e4211b] text-white border-[#e4211b]&#x27; : &#x27;border-[#e5e5e5] text-[#6b6b6b]&#x27;}`}&gt;
+                        {l}
+                      &lt;/button&gt;
+                    ))}
+                  &lt;/div&gt;
+                &lt;/&gt;
+              )}
+
+              &lt;label className={lbl}&gt;الاسم&lt;/label&gt;
+              &lt;input className={inp + &#x27; mb-4&#x27;}
+                placeholder={form.category === &#x27;phone&#x27; ? &#x27;مثلاً: iPhone 13 128GB&#x27; : &#x27;مثلاً: غلاف سيليكون شفاف&#x27;}
+                value={form.name} onChange={set(&#x27;name&#x27;)} /&gt;
+
+              {/* color */}
+              &lt;label className={lbl}&gt;اللون (اختياري)&lt;/label&gt;
+              &lt;div className=&quot;flex flex-wrap gap-2 mb-2&quot;&gt;
+                {COLORS.map(([n, hex]) =&gt; (
+                  &lt;button type=&quot;button&quot; key={n} onClick={() =&gt; setForm({ ...form, color: form.color === n ? &#x27;&#x27; : n })}
+                    className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 min-h-[36px] rounded-full border transition-colors ${form.color === n ? &#x27;border-[#e4211b] bg-[#fdeaea] text-[#e4211b]&#x27; : &#x27;border-[#e5e5e5] text-[#6b6b6b] hover:border-[#bdbdb5]&#x27;}`}&gt;
+                    &lt;span className=&quot;w-4 h-4 rounded-full border border-black/15&quot; style={{ background: hex }} aria-hidden=&quot;true&quot; /&gt;
+                    {n}
+                  &lt;/button&gt;
+                ))}
+              &lt;/div&gt;
+              &lt;input className={inp + &#x27; mb-4&#x27;} placeholder=&quot;أو اكتب لون آخر (مثلاً: أزرق ليلي)&quot;
+                value={form.color} onChange={set(&#x27;color&#x27;)} /&gt;
+
+              &lt;div className=&quot;grid grid-cols-2 gap-3 mb-4&quot;&gt;
+                &lt;div&gt;
+                  &lt;label className={lbl}&gt;سعر الشراء (د.ت)&lt;/label&gt;
+                  &lt;input type=&quot;number&quot; step=&quot;0.001&quot; inputMode=&quot;decimal&quot; className={inp}
+                    value={form.purchase_price} onChange={set(&#x27;purchase_price&#x27;)} /&gt;
+                &lt;/div&gt;
+                &lt;div&gt;
+                  &lt;label className={lbl}&gt;سعر البيع (د.ت)&lt;/label&gt;
+                  &lt;input type=&quot;number&quot; step=&quot;0.001&quot; inputMode=&quot;decimal&quot; className={inp}
+                    value={form.sale_price} onChange={set(&#x27;sale_price&#x27;)} /&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+
+              {form.category === &#x27;accessory&#x27; ? (
+                &lt;div className=&quot;grid grid-cols-2 gap-3 mb-4&quot;&gt;
+                  &lt;div&gt;
+                    &lt;label className={lbl}&gt;الكمية بالمخزون&lt;/label&gt;
+                    &lt;input type=&quot;number&quot; inputMode=&quot;numeric&quot; className={inp}
+                      value={form.stock_quantity} onChange={set(&#x27;stock_quantity&#x27;)} /&gt;
+                  &lt;/div&gt;
+                  &lt;div&gt;
+                    &lt;label className={lbl}&gt;تنبيه عند (حد أدنى)&lt;/label&gt;
+                    &lt;input type=&quot;number&quot; inputMode=&quot;numeric&quot; className={inp}
+                      value={form.low_stock_threshold} onChange={set(&#x27;low_stock_threshold&#x27;)} /&gt;
+                  &lt;/div&gt;
+                &lt;/div&gt;
+              ) : (
+                &lt;div className=&quot;bg-[#faf9f5] border border-[#eeece4] rounded-xl p-3.5 mb-4&quot;&gt;
+                  &lt;p className=&quot;text-xs text-[#6b6b6b] mb-3&quot;&gt;📱 الهاتف قطعة وحدة — الكمية دائمًا 1 (IMEI مميز)&lt;/p&gt;
+                  &lt;label className={lbl}&gt;IMEI&lt;/label&gt;
+                  &lt;input className={inp + &#x27; mb-3&#x27;} dir=&quot;ltr&quot; inputMode=&quot;numeric&quot; value={form.imei} onChange={set(&#x27;imei&#x27;)} /&gt;
+                  &lt;div className=&quot;grid grid-cols-2 gap-3 mb-3&quot;&gt;
+                    &lt;div&gt;
+                      &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;الحالة&lt;/label&gt;
+                      &lt;select className={inp} value={form.condition} onChange={set(&#x27;condition&#x27;)}&gt;
+                        &lt;option value=&quot;new&quot;&gt;جديد&lt;/option&gt;
+                        &lt;option value=&quot;used&quot;&gt;مستعمل&lt;/option&gt;
+                      &lt;/select&gt;
+                    &lt;/div&gt;
+                    &lt;div&gt;
+                      &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;حالة البطارية %&lt;/label&gt;
+                      &lt;input type=&quot;number&quot; min=&quot;0&quot; max=&quot;100&quot; inputMode=&quot;numeric&quot; className={inp}
+                        value={form.battery_health} onChange={set(&#x27;battery_health&#x27;)} /&gt;
+                    &lt;/div&gt;
+                  &lt;/div&gt;
+                  &lt;div className=&quot;grid grid-cols-2 gap-3 mb-3&quot;&gt;
+                    &lt;div&gt;
+                      &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;ضمان داخلي (أيام)&lt;/label&gt;
+                      &lt;input type=&quot;number&quot; inputMode=&quot;numeric&quot; className={inp}
+                        value={form.internal_warranty_days} onChange={set(&#x27;internal_warranty_days&#x27;)} /&gt;
+                    &lt;/div&gt;
+                    &lt;div&gt;
+                      &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;المصدر&lt;/label&gt;
+                      &lt;select className={inp} value={form.source_type} onChange={set(&#x27;source_type&#x27;)}&gt;
+                        &lt;option value=&quot;supplier&quot;&gt;مورّد&lt;/option&gt;
+                        &lt;option value=&quot;client_trade_in&quot;&gt;شراء من حريف&lt;/option&gt;
+                      &lt;/select&gt;
+                    &lt;/div&gt;
+                  &lt;/div&gt;
+                  &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;تفاصيل إضافية عن المصدر (اختياري)&lt;/label&gt;
+                  &lt;input className={inp} value={form.source_details} onChange={set(&#x27;source_details&#x27;)} /&gt;
+                &lt;/div&gt;
+              )}
+
+              &lt;label className={lbl}&gt;المورّد (اختياري)&lt;/label&gt;
+              &lt;input className={inp + &#x27; mb-4&#x27;} value={form.supplier} onChange={set(&#x27;supplier&#x27;)} /&gt;
+
+              &lt;label className={lbl}&gt;صورة المنتج (اختياري)&lt;/label&gt;
+              &lt;ImagePicker
+                file={imageFile}
+                existingUrl={removeImage ? null : existingImageUrl}
+                onPick={pickImage}
+                onRemove={() =&gt; { setImageFile(null); setRemoveImage(true) }}
+              /&gt;
+            &lt;/div&gt;
+
+            {/* sticky footer: always reachable, even on a small phone */}
+            &lt;div className=&quot;shrink-0 border-t border-[#e5e5e5] px-5 py-3 bg-white rounded-b-2xl&quot;&gt;
+              {formError &amp;&amp; &lt;p className=&quot;bg-[#fdeaea] text-[#b3170f] text-sm rounded-lg px-3 py-2 mb-3&quot;&gt;{formError}&lt;/p&gt;}
+              &lt;div className=&quot;flex items-center gap-2&quot;&gt;
+                &lt;button disabled={saving}
+                  className=&quot;flex-1 bg-[#e4211b] text-white font-semibold text-sm px-5 py-3 rounded-lg disabled:opacity-60&quot;&gt;
+                  {saving ? &#x27;جاري الحفظ...&#x27; : &#x27;حفظ&#x27;}
+                &lt;/button&gt;
+                &lt;button type=&quot;button&quot; onClick={() =&gt; setShowForm(false)} disabled={saving}
+                  className=&quot;px-5 py-3 text-sm font-semibold rounded-lg border border-[#e5e5e5] text-[#6b6b6b]&quot;&gt;
+                  إلغاء
+                &lt;/button&gt;
+                {editingId &amp;&amp; (
+                  &lt;button type=&quot;button&quot; onClick={() =&gt; softDelete(editingId)}
+                    className=&quot;px-3 py-3 text-sm font-semibold rounded-lg text-[#b3170f] hover:bg-[#fdeaea]&quot; aria-label=&quot;حذف المنتج&quot;&gt;
+                    🗑
+                  &lt;/button&gt;
+                )}
+              &lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/form&gt;
+        &lt;/div&gt;
+      )}
+    &lt;/div&gt;
+  )
+}
+</pre></div>
+
+<h3>src/pages/comptoir/SellAccessory.jsx</h3> <span class="tag">UPDATED — full file</span><p class="n">Sell screen for comptoir. <b>Updated:</b> comptoir now sees the full product details — color dot, and for phones the IMEI, condition (جديد/مستعمل), battery %, and internal warranty days (compact chips on the cards, everything in the sale dialog). Search matches name, color and IMEI. Purchase price, supplier and where a phone was bought from stay hidden from comptoir.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useMemo, useState } from &#x27;react&#x27;
+import { supabase } from &#x27;../../lib/supabaseClient&#x27;
+import LowStockAlert from &#x27;../shared/LowStockAlert&#x27;
+import ColorDot from &#x27;../../components/shared/ColorDot&#x27;
+import PhoneInfo from &#x27;../../components/shared/PhoneInfo&#x27;
+import { phoneOf } from &#x27;../../lib/phoneDetails&#x27;
+
+const PAYMENT_METHODS = [
+  { value: &#x27;cash&#x27;, label: &#x27;نقدًا&#x27; },
+  { value: &#x27;card&#x27;, label: &#x27;بطاقة&#x27; },
+]
+
+export default function SellAccessory() {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [search, setSearch] = useState(&#x27;&#x27;)
+  const [tab, setTab] = useState(&#x27;all&#x27;) // all | accessory | phone
+
+  const [selected, setSelected] = useState(null)
+  const [quantity, setQuantity] = useState(1)
+  const [paymentMethod, setPaymentMethod] = useState(&#x27;cash&#x27;)
+  const [clientQuery, setClientQuery] = useState(&#x27;&#x27;)
+  const [clientResults, setClientResults] = useState([])
+  const [selectedClient, setSelectedClient] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
+  const [successMsg, setSuccessMsg] = useState(null)
+
+  useEffect(() =&gt; { load() }, [])
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    const { data, error: e } = await supabase
+      .from(&#x27;accessories&#x27;)
+      .select(&#x27;id, category, name, color, image_url, sale_price, stock_quantity, phone_details(imei, condition, battery_health, internal_warranty_days)&#x27;)
+      .eq(&#x27;is_deleted&#x27;, false)
+      .gt(&#x27;stock_quantity&#x27;, 0)
+      .order(&#x27;name&#x27;, { ascending: true })
+    if (e) setError(e.message)
+    setItems(data || [])
+    setLoading(false)
+  }
+
+  const filtered = useMemo(() =&gt; {
+    const q = search.trim().toLowerCase()
+    return items.filter((a) =&gt; {
+      const matchesTab = tab === &#x27;all&#x27; || a.category === tab
+      const matchesText = !q || a.name.toLowerCase().includes(q) || (a.color || &#x27;&#x27;).toLowerCase().includes(q) || (phoneOf(a)?.imei || &#x27;&#x27;).toLowerCase().includes(q)
+      return matchesTab &amp;&amp; matchesText
+    })
+  }, [items, search, tab])
+
+  function openSell(item) {
+    setSelected(item)
+    setQuantity(1)
+    setPaymentMethod(&#x27;cash&#x27;)
+    setClientQuery(&#x27;&#x27;)
+    setClientResults([])
+    setSelectedClient(null)
+    setSaveError(null)
+  }
+
+  function closeSell() {
+    setSelected(null)
+  }
+
+  // search existing clients by phone or name as the comptoir types — same idea
+  // as the order form&#x27;s client lookup, kept local to this page to not depend on it.
+  async function searchClients(q) {
+    setClientQuery(q)
+    setSelectedClient(null)
+    if (q.trim().length &lt; 2) { setClientResults([]); return }
+    const { data } = await supabase
+      .from(&#x27;clients&#x27;)
+      .select(&#x27;id, full_name, phone&#x27;)
+      .or(`phone.ilike.%${q.trim()}%,full_name.ilike.%${q.trim()}%`)
+      .limit(5)
+    setClientResults(data || [])
+  }
+
+  async function confirmSale() {
+    setSaveError(null)
+    if (!selected) return
+    if (quantity &lt; 1 || quantity &gt; selected.stock_quantity) {
+      setSaveError(`الكمية لازم تكون بين 1 و ${selected.stock_quantity}`)
+      return
+    }
+    setSaving(true)
+    const { error: err } = await supabase.rpc(&#x27;sell_accessory&#x27;, {
+      p_accessory_id: selected.id,
+      p_quantity: Number(quantity),
+      p_client_id: selectedClient?.id || null,
+      p_payment_method: paymentMethod,
+    })
+    setSaving(false)
+    if (err) { setSaveError(&#x27;خطأ: &#x27; + err.message); return }
+    setSuccessMsg(`تم بيع &quot;${selected.name}&quot; × ${quantity} — ${(selected.sale_price * quantity).toFixed(2)} د.ت`)
+    setTimeout(() =&gt; setSuccessMsg(null), 4000)
+    closeSell()
+    load()
+  }
+
+  const inp = &#x27;w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b]&#x27;
+
+  return (
+    &lt;div&gt;
+      &lt;div className=&quot;mb-6 pb-4 border-b border-[#e5e5e5]&quot;&gt;
+        &lt;h1 className=&quot;text-xl font-extrabold text-[#1a1a1a] mb-1&quot;&gt;بيع إكسسوار&lt;/h1&gt;
+        &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;بيع مباشر — يسجّل في الصندوق تلقائيًا وينقص من المخزون&lt;/p&gt;
+      &lt;/div&gt;
+
+      &lt;LowStockAlert /&gt;
+
+      {successMsg &amp;&amp; (
+        &lt;p className=&quot;bg-[#eefaf1] text-[#1f8a4c] text-sm font-semibold rounded-lg px-4 py-3 mb-4&quot;&gt;✔ {successMsg}&lt;/p&gt;
+      )}
+      {error &amp;&amp; &lt;p className=&quot;bg-[#fdeaea] text-[#b3170f] text-sm rounded-lg px-4 py-3 mb-4&quot;&gt;{error}&lt;/p&gt;}
+
+      &lt;div className=&quot;flex flex-col sm:flex-row gap-2 mb-5&quot;&gt;
+        &lt;input value={search} onChange={(e) =&gt; setSearch(e.target.value)}
+          placeholder=&quot;فتّش بالاسم أو اللون أو IMEI&quot; className={inp + &#x27; flex-1&#x27;} /&gt;
+        &lt;div className=&quot;flex gap-2&quot;&gt;
+          {[[&#x27;all&#x27;, &#x27;الكل&#x27;], [&#x27;accessory&#x27;, &#x27;إكسسوارات&#x27;], [&#x27;phone&#x27;, &#x27;هواتف&#x27;]].map(([v, l]) =&gt; (
+            &lt;button key={v} onClick={() =&gt; setTab(v)}
+              className={`text-sm px-4 py-2 rounded-lg border whitespace-nowrap ${tab === v ? &#x27;bg-[#e4211b] text-white border-[#e4211b]&#x27; : &#x27;border-[#e5e5e5] text-[#6b6b6b]&#x27;}`}&gt;
+              {l}
+            &lt;/button&gt;
+          ))}
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      {loading ? (
+        &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;جاري التحميل...&lt;/p&gt;
+      ) : filtered.length === 0 ? (
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;&lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;ما فماش منتجات متوفرة حاليًا&lt;/p&gt;&lt;/div&gt;
+      ) : (
+        &lt;div className=&quot;grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3&quot;&gt;
+          {filtered.map((a) =&gt; (
+            &lt;button key={a.id} onClick={() =&gt; openSell(a)}
+              className=&quot;text-right bg-white border border-[#e5e5e5] rounded-xl p-3 hover:border-[#e4211b] transition-colors&quot;&gt;
+              {a.image_url ? (
+                &lt;img src={a.image_url} alt=&quot;&quot; className=&quot;w-full h-24 object-cover rounded-lg mb-2&quot; /&gt;
+              ) : (
+                &lt;div className=&quot;w-full h-24 rounded-lg bg-[#faf9f5] flex items-center justify-center text-2xl mb-2&quot;&gt;
+                  {a.category === &#x27;phone&#x27; ? &#x27;📱&#x27; : &#x27;🛍️&#x27;}
+                &lt;/div&gt;
+              )}
+              &lt;p className=&quot;text-xs font-semibold text-[#1a1a1a] line-clamp-2&quot;&gt;{a.name}&lt;/p&gt;
+              &lt;ColorDot label={a.color} className=&quot;mt-0.5 !text-[11px]&quot; /&gt;
+              &lt;PhoneInfo item={a} className=&quot;mt-1&quot; /&gt;
+              &lt;div className=&quot;flex justify-between items-center mt-1.5&quot;&gt;
+                &lt;span className=&quot;text-[10px] text-[#6b6b6b]&quot;&gt;متوفر: {a.stock_quantity}&lt;/span&gt;
+                &lt;span className=&quot;text-xs font-bold text-[#1f8a4c]&quot;&gt;{Number(a.sale_price).toFixed(2)} د.ت&lt;/span&gt;
+              &lt;/div&gt;
+            &lt;/button&gt;
+          ))}
+        &lt;/div&gt;
+      )}
+
+      {selected &amp;&amp; (
+        &lt;div className=&quot;fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50&quot; onClick={closeSell}&gt;
+          &lt;div className=&quot;bg-white rounded-t-xl sm:rounded-xl p-5 sm:p-6 w-full sm:max-w-md&quot; onClick={(e) =&gt; e.stopPropagation()}&gt;
+            &lt;h3 className=&quot;font-bold text-[#1a1a1a] mb-1&quot;&gt;{selected.name}&lt;/h3&gt;
+            &lt;ColorDot label={selected.color} className=&quot;mb-1&quot; /&gt;
+            &lt;PhoneInfo item={selected} full className=&quot;mb-3&quot; /&gt;
+            &lt;p className=&quot;text-sm text-[#6b6b6b] mb-4&quot;&gt;{Number(selected.sale_price).toFixed(2)} د.ت / واحدة — متوفر {selected.stock_quantity}&lt;/p&gt;
+
+            {selected.category === &#x27;accessory&#x27; &amp;&amp; (
+              &lt;&gt;
+                &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;الكمية&lt;/label&gt;
+                &lt;input type=&quot;number&quot; min=&quot;1&quot; max={selected.stock_quantity} value={quantity}
+                  onChange={(e) =&gt; setQuantity(Number(e.target.value))} className={inp + &#x27; mb-4&#x27;} /&gt;
+              &lt;/&gt;
+            )}
+
+            &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;الحريف (اختياري)&lt;/label&gt;
+            {selectedClient ? (
+              &lt;div className=&quot;flex justify-between items-center bg-[#faf9f5] rounded-lg px-3 py-2.5 mb-4&quot;&gt;
+                &lt;span className=&quot;text-sm&quot;&gt;{selectedClient.full_name} — {selectedClient.phone}&lt;/span&gt;
+                &lt;button onClick={() =&gt; { setSelectedClient(null); setClientQuery(&#x27;&#x27;) }} className=&quot;text-xs text-[#b3170f]&quot;&gt;إزالة&lt;/button&gt;
+              &lt;/div&gt;
+            ) : (
+              &lt;div className=&quot;relative mb-4&quot;&gt;
+                &lt;input value={clientQuery} onChange={(e) =&gt; searchClients(e.target.value)}
+                  placeholder=&quot;فتّش بالاسم أو الهاتف، أو اتركه فارغ لبيع بدون حريف&quot; className={inp} /&gt;
+                {clientResults.length &gt; 0 &amp;&amp; (
+                  &lt;div className=&quot;absolute z-10 w-full bg-white border border-[#e5e5e5] rounded-lg mt-1 overflow-hidden shadow-sm&quot;&gt;
+                    {clientResults.map((c) =&gt; (
+                      &lt;button key={c.id} onClick={() =&gt; { setSelectedClient(c); setClientResults([]) }}
+                        className=&quot;w-full text-right px-3 py-2 text-sm hover:bg-[#faf9f5]&quot;&gt;
+                        {c.full_name} — {c.phone}
+                      &lt;/button&gt;
+                    ))}
+                  &lt;/div&gt;
+                )}
+              &lt;/div&gt;
+            )}
+
+            &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;طريقة الدفع&lt;/label&gt;
+            &lt;div className=&quot;flex gap-2 mb-4&quot;&gt;
+              {PAYMENT_METHODS.map((p) =&gt; (
+                &lt;button key={p.value} onClick={() =&gt; setPaymentMethod(p.value)}
+                  className={`flex-1 text-sm px-4 py-2.5 rounded-lg border ${paymentMethod === p.value ? &#x27;bg-[#e4211b] text-white border-[#e4211b]&#x27; : &#x27;border-[#e5e5e5]&#x27;}`}&gt;
+                  {p.label}
+                &lt;/button&gt;
+              ))}
+            &lt;/div&gt;
+
+            &lt;div className=&quot;bg-[#faf9f5] rounded-lg p-3 mb-4 flex justify-between items-center&quot;&gt;
+              &lt;span className=&quot;text-sm text-[#6b6b6b]&quot;&gt;المجموع&lt;/span&gt;
+              &lt;span className=&quot;font-bold text-[#1f8a4c]&quot;&gt;{(selected.sale_price * quantity).toFixed(2)} د.ت&lt;/span&gt;
+            &lt;/div&gt;
+
+            {saveError &amp;&amp; &lt;p className=&quot;text-[#b3170f] text-sm mb-3&quot;&gt;{saveError}&lt;/p&gt;}
+            &lt;button onClick={confirmSale} disabled={saving}
+              className=&quot;w-full bg-[#e4211b] text-white font-semibold text-sm px-5 py-2.5 rounded-lg disabled:opacity-60 mb-2&quot;&gt;
+              {saving ? &#x27;...&#x27; : &#x27;تأكيد البيع&#x27;}
+            &lt;/button&gt;
+            &lt;button onClick={closeSell} className=&quot;w-full border border-[#e5e5e5] text-sm px-4 py-2.5 rounded-lg&quot;&gt;
+              إلغاء
+            &lt;/button&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+      )}
+    &lt;/div&gt;
+  )
+}
+</pre></div>
+
+<h3>src/pages/shared/LowStockAlert.jsx</h3>
+<p class="n">A small warning banner, used at the top of both pages above. Only counts regular accessories (phones excluded on purpose).</p>
+<div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
+import { Link } from &#x27;react-router-dom&#x27;
+import { supabase } from &#x27;../../lib/supabaseClient&#x27;
+
+// Shows a small warning banner for accessories running low on stock.
+// Phones are excluded on purpose: each phone is a single unique unit (IMEI),
+// so &quot;low stock&quot; has no meaning for them — they&#x27;re either in stock (1) or sold (0).
+export default function LowStockAlert() {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() =&gt; { load() }, [])
+
+  async function load() {
+    const { data } = await supabase
+      .from(&#x27;accessories&#x27;)
+      .select(&#x27;id, name, stock_quantity, low_stock_threshold&#x27;)
+      .eq(&#x27;category&#x27;, &#x27;accessory&#x27;)
+      .eq(&#x27;is_deleted&#x27;, false)
+      .order(&#x27;stock_quantity&#x27;, { ascending: true })
+    setItems((data || []).filter((a) =&gt; a.stock_quantity &lt;= (a.low_stock_threshold ?? 3)))
+    setLoading(false)
+  }
+
+  if (loading || items.length === 0) return null
+
+  return (
+    &lt;div className=&quot;bg-[#fff8f0] border border-[#f0d9b8] rounded-xl p-4 mb-5&quot;&gt;
+      &lt;div className=&quot;flex items-start justify-between gap-3&quot;&gt;
+        &lt;div&gt;
+          &lt;p className=&quot;text-sm font-bold text-[#8a4f06]&quot;&gt;⚠ مخزون منخفض ({items.length})&lt;/p&gt;
+          &lt;ul className=&quot;text-xs text-[#8a4f06] mt-1.5 space-y-0.5&quot;&gt;
+            {items.slice(0, 5).map((a) =&gt; (
+              &lt;li key={a.id}&gt;
+                {a.name} — باقي {a.stock_quantity} {a.stock_quantity === 0 &amp;&amp; &#x27;(نفذ تمامًا)&#x27;}
+              &lt;/li&gt;
+            ))}
+            {items.length &gt; 5 &amp;&amp; &lt;li&gt;و {items.length - 5} منتجات أخرى...&lt;/li&gt;}
+          &lt;/ul&gt;
+        &lt;/div&gt;
+        &lt;Link to=&quot;/admin/accessories&quot; className=&quot;shrink-0 text-xs font-semibold text-[#8a4f06] underline whitespace-nowrap&quot;&gt;
+          إدارة المخزون
+        &lt;/Link&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  )
+}
+</pre></div>
+
+<h3>src/pages/caisse/Caisse.jsx</h3>
+<p class="n">The register's <code>type</code> column stays <code>"accessory_sale"</code> for both regular accessories and phones — only <code>source_type</code> tells them apart (<code>accessory_sale</code> vs <code>phone_sale</code>). Without this fix, a phone sale would have shown as "بيع إكسسوار" in Caisse. DailyReport already grouped by <code>source_type</code> correctly, so it needed no change.</p>
+<div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
+import { supabase } from &#x27;../../lib/supabaseClient&#x27;
+import VoidRequestButton from &#x27;../shared/VoidRequestButton&#x27;
+
+const TYPE_LABELS = {
+  repair_income: &#x27;مدخول صيانة&#x27;,
+  accessory_sale: &#x27;بيع إكسسوار&#x27;,
+  withdrawal: &#x27;سحب&#x27;,
+  debt_collection: &#x27;تحصيل دين&#x27;,
+  loan_return: &#x27;رجوع سلفة&#x27;,
+}
+
+const SOURCE_LABELS = {
+  repair_part: &#x27;مصروف قطعة غيار&#x27;,
+  general: &#x27;مصروف عام&#x27;,
+  loan_out: &#x27;سلفة من الصندوق&#x27;,
+  debt_payment: &#x27;تسديد دين&#x27;,
+}
+
+const INCOME_TYPES = [&#x27;repair_income&#x27;, &#x27;accessory_sale&#x27;, &#x27;debt_collection&#x27;, &#x27;loan_return&#x27;]
+const isIncome = (t) =&gt; INCOME_TYPES.includes(t.type)
+
+function labelOf(t) {
+  if (t.type === &#x27;expense_out&#x27;) return SOURCE_LABELS[t.source_type] || &#x27;مصروف&#x27;
+  // type stays &quot;accessory_sale&quot; for both regular accessories and phones —
+  // source_type is what actually tells them apart
+  if (t.type === &#x27;accessory_sale&#x27; &amp;&amp; t.source_type === &#x27;phone_sale&#x27;) return &#x27;بيع هاتف&#x27;
+  return TYPE_LABELS[t.type] || t.type
+}
+
+export default function Caisse() {
+  const [transactions, setTransactions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [filter, setFilter] = useState(&#x27;today&#x27;) // today | month | all
+
+  useEffect(() =&gt; {
+    loadTransactions()
+  }, [filter])
+
+  async function loadTransactions() {
+    setLoading(true)
+    setError(null)
+
+    // &quot;description&quot; is written by the DB triggers (item + order number, or the
+    // general expense text), so comptoir can read it without touching
+    // repair_expenses / general_expenses (which RLS hides from them).
+    let query = supabase
+      .from(&#x27;cash_transactions&#x27;)
+      .select(&#x27;id, type, source_type, description, amount, created_at, profiles!cash_transactions_performed_by_fkey(full_name)&#x27;)
+      .eq(&#x27;is_void&#x27;, false) // voided rows never count
+      .order(&#x27;created_at&#x27;, { ascending: false })
+
+    const now = new Date()
+    if (filter === &#x27;today&#x27;) {
+      query = query.gte(&#x27;created_at&#x27;, new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString())
+    } else if (filter === &#x27;month&#x27;) {
+      query = query.gte(&#x27;created_at&#x27;, new Date(now.getFullYear(), now.getMonth(), 1).toISOString())
+    }
+
+    const { data, error: qError } = await query
+    if (qError) setError(qError.message)
+    setTransactions(data || [])
+    setLoading(false)
+  }
+
+  const income = transactions.filter(isIncome).reduce((s, t) =&gt; s + Number(t.amount), 0)
+  const expenses = transactions.filter((t) =&gt; !isIncome(t)).reduce((s, t) =&gt; s + Number(t.amount), 0)
+  const net = income - expenses
+
+  return (
+    &lt;div&gt;
+      &lt;div className=&quot;flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end mb-6 pb-4 border-b border-[#e5e5e5]&quot;&gt;
+        &lt;div&gt;
+          &lt;h1 className=&quot;text-xl font-extrabold text-[#1a1a1a] mb-1&quot;&gt;الصندوق&lt;/h1&gt;
+          &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;مداخيل ومصاريف الصندوق&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;div className=&quot;flex gap-2 overflow-x-auto -mx-1 px-1 sm:mx-0 sm:px-0&quot;&gt;
+          {[
+            { key: &#x27;today&#x27;, label: &#x27;اليوم&#x27; },
+            { key: &#x27;month&#x27;, label: &#x27;هذا الشهر&#x27; },
+            { key: &#x27;all&#x27;, label: &#x27;الكل&#x27; },
+          ].map((f) =&gt; (
+            &lt;button
+              key={f.key}
+              onClick={() =&gt; setFilter(f.key)}
+              className={`shrink-0 text-sm px-4 py-2 rounded-lg font-semibold ${
+                filter === f.key
+                  ? &#x27;bg-[#1a1a1a] text-white&#x27;
+                  : &#x27;border border-[#e5e5e5] text-[#1a1a1a] hover:bg-[#f7f7f7]&#x27;
+              }`}
+            &gt;
+              {f.label}
+            &lt;/button&gt;
+          ))}
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      {error &amp;&amp; (
+        &lt;p className=&quot;bg-[#fdeaea] text-[#b3170f] text-sm rounded-lg px-4 py-3 mb-4&quot;&gt;
+          خطأ في التحميل: {error}
+        &lt;/p&gt;
+      )}
+
+      &lt;div className=&quot;grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6&quot;&gt;
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl p-4 sm:p-5&quot;&gt;
+          &lt;p className=&quot;text-xs text-[#6b6b6b] mb-1&quot;&gt;المداخيل&lt;/p&gt;
+          &lt;p className=&quot;text-xl sm:text-2xl font-extrabold text-[#1f8a4c]&quot;&gt;{income.toFixed(2)} د.ت&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl p-4 sm:p-5&quot;&gt;
+          &lt;p className=&quot;text-xs text-[#6b6b6b] mb-1&quot;&gt;المصاريف&lt;/p&gt;
+          &lt;p className=&quot;text-xl sm:text-2xl font-extrabold text-[#b3170f]&quot;&gt;{expenses.toFixed(2)} د.ت&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl p-4 sm:p-5&quot;&gt;
+          &lt;p className=&quot;text-xs text-[#6b6b6b] mb-1&quot;&gt;الصافي&lt;/p&gt;
+          &lt;p className={`text-xl sm:text-2xl font-extrabold ${net &gt;= 0 ? &#x27;text-[#1f8a4c]&#x27; : &#x27;text-[#b3170f]&#x27;}`}&gt;
+            {net.toFixed(2)} د.ت
+          &lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      {loading ? (
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;
+          &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;جاري التحميل...&lt;/p&gt;
+        &lt;/div&gt;
+      ) : transactions.length === 0 ? (
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;
+          &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;ما فماش عمليات في هذي الفترة&lt;/p&gt;
+        &lt;/div&gt;
+      ) : (
+        &lt;&gt;
+          {/* Phone / tablet: one card per transaction, nothing squeezed sideways */}
+          &lt;div className=&quot;lg:hidden flex flex-col gap-3&quot;&gt;
+            {transactions.map((t) =&gt; {
+              const inc = isIncome(t)
+              return (
+                &lt;div key={t.id} className=&quot;bg-white border border-[#e5e5e5] rounded-xl p-4&quot;&gt;
+                  &lt;div className=&quot;flex justify-between items-start gap-3&quot;&gt;
+                    &lt;div className=&quot;min-w-0&quot;&gt;
+                      &lt;p className=&quot;font-semibold text-[#1a1a1a] text-sm&quot;&gt;{labelOf(t)}&lt;/p&gt;
+                      {t.description &amp;&amp; (
+                        &lt;p className=&quot;text-xs text-[#6b6b6b] mt-0.5 break-words&quot;&gt;{t.description}&lt;/p&gt;
+                      )}
+                    &lt;/div&gt;
+                    &lt;p className={`font-bold text-sm whitespace-nowrap ${inc ? &#x27;text-[#1f8a4c]&#x27; : &#x27;text-[#b3170f]&#x27;}`}&gt;
+                      {inc ? &#x27;+&#x27; : &#x27;-&#x27;}
+                      {Number(t.amount).toFixed(2)} د.ت
+                    &lt;/p&gt;
+                  &lt;/div&gt;
+                  &lt;div className=&quot;flex justify-between items-center mt-3 pt-3 border-t border-[#f0f0ea] text-xs text-[#6b6b6b]&quot;&gt;
+                    &lt;span&gt;{t.profiles?.full_name || &#x27;—&#x27;} · {new Date(t.created_at).toLocaleString(&#x27;ar-TN&#x27;)}&lt;/span&gt;
+                    &lt;VoidRequestButton tx={t} onDone={loadTransactions} /&gt;
+                  &lt;/div&gt;
+                &lt;/div&gt;
+              )
+            })}
+          &lt;/div&gt;
+
+          {/* Desktop: the original table */}
+          &lt;div className=&quot;hidden lg:block bg-white border border-[#e5e5e5] rounded-xl overflow-hidden&quot;&gt;
+            &lt;table className=&quot;w-full text-sm&quot;&gt;
+              &lt;thead&gt;
+                &lt;tr className=&quot;bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold&quot;&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;النوع&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;التفصيل&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;المبلغ&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;بواسطة&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;التاريخ&lt;/th&gt;
+                  &lt;th className=&quot;px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;&lt;/th&gt;
+                &lt;/tr&gt;
+              &lt;/thead&gt;
+              &lt;tbody&gt;
+                {transactions.map((t) =&gt; {
+                  const inc = isIncome(t)
+                  return (
+                    &lt;tr key={t.id} className=&quot;hover:bg-[#fbfaf6]&quot;&gt;
+                      &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;{labelOf(t)}&lt;/td&gt;
+                      &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] text-xs text-[#6b6b6b]&quot;&gt;
+                        {t.description || &#x27;—&#x27;}
+                      &lt;/td&gt;
+                      &lt;td
+                        className={`px-5 py-3.5 border-b border-[#ececE4] font-bold ${
+                          inc ? &#x27;text-[#1f8a4c]&#x27; : &#x27;text-[#b3170f]&#x27;
+                        }`}
+                      &gt;
+                        {inc ? &#x27;+&#x27; : &#x27;-&#x27;}
+                        {Number(t.amount).toFixed(2)} د.ت
+                      &lt;/td&gt;
+                      &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] text-[#6b6b6b]&quot;&gt;
+                        {t.profiles?.full_name || &#x27;—&#x27;}
+                      &lt;/td&gt;
+                      &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] text-xs text-[#6b6b6b]&quot;&gt;
+                        {new Date(t.created_at).toLocaleString(&#x27;ar-TN&#x27;)}
+                      &lt;/td&gt;
+                      &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;
+                        &lt;VoidRequestButton tx={t} onDone={loadTransactions} /&gt;
+                      &lt;/td&gt;
+                    &lt;/tr&gt;
+                  )
+                })}
+              &lt;/tbody&gt;
+            &lt;/table&gt;
+          &lt;/div&gt;
+        &lt;/&gt;
+      )}
+    &lt;/div&gt;
+  )
+}
+</pre></div>
+
+<p class="n">Routes, imports, and the sidebar links for both pages (<code>/comptoir/sell</code>, <code>/admin/accessories</code>) were already in place from the start as placeholders — nothing to add there.</p>
+
+<h3>src/pages/admin/Reports.jsx — top-selling products</h3>
+<p class="n">Replaces the "قريبًا" stub. Aggregates <code>accessory_sales</code> by product (client-side — a shop's sales history is small enough that one query plus grouping in the browser is simpler than a SQL view). Search by name, category tabs, a period filter (today / this month / all time), and sort by quantity sold or revenue, each high-to-low or low-to-high, or by the product's own price.</p>
+<div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useMemo, useState } from &#x27;react&#x27;
+import { supabase } from &#x27;../../lib/supabaseClient&#x27;
+
+const PERIODS = [
+  { value: &#x27;all&#x27;, label: &#x27;كل الوقت&#x27; },
+  { value: &#x27;month&#x27;, label: &#x27;هذا الشهر&#x27; },
+  { value: &#x27;today&#x27;, label: &#x27;اليوم&#x27; },
+]
+
+const SORT_OPTIONS = [
+  { value: &#x27;qty_desc&#x27;, label: &#x27;الأكثر مبيعًا&#x27; },
+  { value: &#x27;qty_asc&#x27;, label: &#x27;الأقل مبيعًا&#x27; },
+  { value: &#x27;revenue_desc&#x27;, label: &#x27;الإيرادات: من الأعلى&#x27; },
+  { value: &#x27;revenue_asc&#x27;, label: &#x27;الإيرادات: من الأدنى&#x27; },
+  { value: &#x27;price_desc&#x27;, label: &#x27;السعر: من الأعلى&#x27; },
+  { value: &#x27;price_asc&#x27;, label: &#x27;السعر: من الأدنى&#x27; },
+]
+
+// Top-selling products — aggregates accessory_sales by product, client-side.
+// A small shop&#x27;s sales history is a few hundred/thousand rows at most, so one
+// query + grouping in the browser is simpler than a SQL view and just as fast.
+export default function Reports() {
+  const [sales, setSales] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [period, setPeriod] = useState(&#x27;month&#x27;)
+  const [search, setSearch] = useState(&#x27;&#x27;)
+  const [category, setCategory] = useState(&#x27;all&#x27;) // all | accessory | phone
+  const [sortBy, setSortBy] = useState(&#x27;qty_desc&#x27;)
+
+  useEffect(() =&gt; { load() }, [period])
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    let q = supabase
+      .from(&#x27;accessory_sales&#x27;)
+      .select(&#x27;id, quantity, total, unit_price, created_at, accessory_id, accessories(id, name, category, sale_price, image_url, is_deleted)&#x27;)
+
+    const now = new Date()
+    if (period === &#x27;today&#x27;) q = q.gte(&#x27;created_at&#x27;, new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString())
+    if (period === &#x27;month&#x27;) q = q.gte(&#x27;created_at&#x27;, new Date(now.getFullYear(), now.getMonth(), 1).toISOString())
+
+    const { data, error: e } = await q
+    if (e) setError(e.message)
+    setSales(data || [])
+    setLoading(false)
+  }
+
+  // group sales rows by product
+  const products = useMemo(() =&gt; {
+    const map = new Map()
+    for (const s of sales) {
+      const a = s.accessories
+      if (!a) continue
+      if (!map.has(a.id)) {
+        map.set(a.id, {
+          id: a.id, name: a.name, category: a.category, sale_price: a.sale_price,
+          image_url: a.image_url, is_deleted: a.is_deleted, qty: 0, revenue: 0, salesCount: 0,
+        })
+      }
+      const p = map.get(a.id)
+      p.qty += s.quantity
+      p.revenue += Number(s.total)
+      p.salesCount += 1
+    }
+    return [...map.values()]
+  }, [sales])
+
+  const visible = useMemo(() =&gt; {
+    const q = search.trim().toLowerCase()
+    let list = products.filter((p) =&gt; {
+      const matchesCat = category === &#x27;all&#x27; || p.category === category
+      const matchesText = !q || p.name.toLowerCase().includes(q)
+      return matchesCat &amp;&amp; matchesText
+    })
+    list = [...list].sort((a, b) =&gt; {
+      if (sortBy === &#x27;qty_desc&#x27;) return b.qty - a.qty
+      if (sortBy === &#x27;qty_asc&#x27;) return a.qty - b.qty
+      if (sortBy === &#x27;revenue_desc&#x27;) return b.revenue - a.revenue
+      if (sortBy === &#x27;revenue_asc&#x27;) return a.revenue - b.revenue
+      if (sortBy === &#x27;price_desc&#x27;) return b.sale_price - a.sale_price
+      if (sortBy === &#x27;price_asc&#x27;) return a.sale_price - b.sale_price
+      return 0
+    })
+    return list
+  }, [products, search, category, sortBy])
+
+  const totalQty = visible.reduce((s, p) =&gt; s + p.qty, 0)
+  const totalRevenue = visible.reduce((s, p) =&gt; s + p.revenue, 0)
+
+  const inp = &#x27;px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b]&#x27;
+
+  return (
+    &lt;div&gt;
+      &lt;div className=&quot;flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end mb-6 pb-4 border-b border-[#e5e5e5]&quot;&gt;
+        &lt;div&gt;
+          &lt;h1 className=&quot;text-xl font-extrabold text-[#1a1a1a] mb-1&quot;&gt;الأكثر مبيعًا&lt;/h1&gt;
+          &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;ترتيب المنتجات (إكسسوارات وهواتف) حسب الكمية أو الإيرادات&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;div className=&quot;flex gap-2 overflow-x-auto -mx-1 px-1 sm:mx-0 sm:px-0&quot;&gt;
+          {PERIODS.map((p) =&gt; (
+            &lt;button key={p.value} onClick={() =&gt; setPeriod(p.value)}
+              className={`shrink-0 text-sm px-4 py-2 rounded-lg font-semibold ${period === p.value ? &#x27;bg-[#1a1a1a] text-white&#x27; : &#x27;border border-[#e5e5e5] hover:bg-[#f7f7f7]&#x27;}`}&gt;
+              {p.label}
+            &lt;/button&gt;
+          ))}
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      {error &amp;&amp; &lt;p className=&quot;bg-[#fdeaea] text-[#b3170f] text-sm rounded-lg px-4 py-3 mb-4&quot;&gt;{error}&lt;/p&gt;}
+
+      &lt;div className=&quot;grid grid-cols-2 gap-3 mb-5&quot;&gt;
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl p-4&quot;&gt;
+          &lt;p className=&quot;text-xs text-[#6b6b6b] mb-1&quot;&gt;القطع المباعة&lt;/p&gt;
+          &lt;p className=&quot;text-xl font-extrabold text-[#1a1a1a]&quot;&gt;{totalQty}&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl p-4&quot;&gt;
+          &lt;p className=&quot;text-xs text-[#6b6b6b] mb-1&quot;&gt;إجمالي الإيرادات&lt;/p&gt;
+          &lt;p className=&quot;text-xl font-extrabold text-[#1f8a4c]&quot;&gt;{totalRevenue.toFixed(2)} د.ت&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;div className=&quot;flex flex-col sm:flex-row gap-2 mb-3&quot;&gt;
+        &lt;input value={search} onChange={(e) =&gt; setSearch(e.target.value)}
+          placeholder=&quot;فتّش عن منتج&quot; className={inp + &#x27; flex-1&#x27;} /&gt;
+        &lt;select value={sortBy} onChange={(e) =&gt; setSortBy(e.target.value)} className={inp + &#x27; bg-white sm:w-56&#x27;}&gt;
+          {SORT_OPTIONS.map((s) =&gt; &lt;option key={s.value} value={s.value}&gt;{s.label}&lt;/option&gt;)}
+        &lt;/select&gt;
+      &lt;/div&gt;
+      &lt;div className=&quot;flex gap-2 mb-5&quot;&gt;
+        {[[&#x27;all&#x27;, &#x27;الكل&#x27;], [&#x27;accessory&#x27;, &#x27;إكسسوارات&#x27;], [&#x27;phone&#x27;, &#x27;هواتف&#x27;]].map(([v, l]) =&gt; (
+          &lt;button key={v} onClick={() =&gt; setCategory(v)}
+            className={`text-sm px-4 py-2 rounded-lg border ${category === v ? &#x27;bg-[#e4211b] text-white border-[#e4211b]&#x27; : &#x27;border-[#e5e5e5] text-[#6b6b6b]&#x27;}`}&gt;
+            {l}
+          &lt;/button&gt;
+        ))}
+      &lt;/div&gt;
+
+      {loading ? (
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;&lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;جاري التحميل...&lt;/p&gt;&lt;/div&gt;
+      ) : visible.length === 0 ? (
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;
+          &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;
+            {products.length === 0 ? &#x27;ما فماش مبيعات في هذي الفترة&#x27; : &#x27;ما فماش نتائج لهذا البحث&#x27;}
+          &lt;/p&gt;
+        &lt;/div&gt;
+      ) : (
+        &lt;&gt;
+          {/* phone: cards */}
+          &lt;div className=&quot;lg:hidden flex flex-col gap-3&quot;&gt;
+            {visible.map((p, i) =&gt; (
+              &lt;div key={p.id} className=&quot;bg-white border border-[#e5e5e5] rounded-xl p-4 flex gap-3&quot;&gt;
+                &lt;div className=&quot;w-7 shrink-0 text-center text-xs font-bold text-[#6b6b6b] pt-1&quot;&gt;#{i + 1}&lt;/div&gt;
+                {p.image_url ? (
+                  &lt;img src={p.image_url} alt=&quot;&quot; className=&quot;w-12 h-12 rounded-lg object-cover shrink-0&quot; /&gt;
+                ) : (
+                  &lt;div className=&quot;w-12 h-12 rounded-lg bg-[#faf9f5] shrink-0 flex items-center justify-center text-lg&quot;&gt;
+                    {p.category === &#x27;phone&#x27; ? &#x27;📱&#x27; : &#x27;🛍️&#x27;}
+                  &lt;/div&gt;
+                )}
+                &lt;div className=&quot;min-w-0 flex-1&quot;&gt;
+                  &lt;p className=&quot;font-semibold text-[#1a1a1a] text-sm&quot;&gt;{p.name}{p.is_deleted &amp;&amp; &#x27; (محذوف)&#x27;}&lt;/p&gt;
+                  &lt;div className=&quot;flex justify-between items-center mt-1&quot;&gt;
+                    &lt;span className=&quot;text-xs text-[#6b6b6b]&quot;&gt;بيعت {p.qty} مرة&lt;/span&gt;
+                    &lt;span className=&quot;font-bold text-[#1f8a4c] text-sm&quot;&gt;{p.revenue.toFixed(2)} د.ت&lt;/span&gt;
+                  &lt;/div&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+            ))}
+          &lt;/div&gt;
+
+          {/* desktop: table */}
+          &lt;div className=&quot;hidden lg:block bg-white border border-[#e5e5e5] rounded-xl overflow-hidden&quot;&gt;
+            &lt;table className=&quot;w-full text-sm&quot;&gt;
+              &lt;thead&gt;
+                &lt;tr className=&quot;bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold&quot;&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;#&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;المنتج&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;النوع&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;سعر البيع&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;الكمية المباعة&lt;/th&gt;
+                  &lt;th className=&quot;text-right px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;الإيرادات&lt;/th&gt;
+                &lt;/tr&gt;
+              &lt;/thead&gt;
+              &lt;tbody&gt;
+                {visible.map((p, i) =&gt; (
+                  &lt;tr key={p.id} className=&quot;hover:bg-[#fbfaf6]&quot;&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] text-[#6b6b6b]&quot;&gt;{i + 1}&lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;
+                      &lt;div className=&quot;flex items-center gap-3&quot;&gt;
+                        {p.image_url ? (
+                          &lt;img src={p.image_url} alt=&quot;&quot; className=&quot;w-9 h-9 rounded-lg object-cover&quot; /&gt;
+                        ) : (
+                          &lt;div className=&quot;w-9 h-9 rounded-lg bg-[#faf9f5] flex items-center justify-center&quot;&gt;
+                            {p.category === &#x27;phone&#x27; ? &#x27;📱&#x27; : &#x27;🛍️&#x27;}
+                          &lt;/div&gt;
+                        )}
+                        &lt;span className=&quot;font-semibold&quot;&gt;{p.name}{p.is_deleted &amp;&amp; &lt;span className=&quot;text-[#6b6b6b] font-normal&quot;&gt; (محذوف)&lt;/span&gt;}&lt;/span&gt;
+                      &lt;/div&gt;
+                    &lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] text-xs text-[#6b6b6b]&quot;&gt;
+                      {p.category === &#x27;phone&#x27; ? &#x27;هاتف&#x27; : &#x27;إكسسوار&#x27;}
+                    &lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;{Number(p.sale_price).toFixed(2)} د.ت&lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] font-semibold&quot;&gt;{p.qty}&lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] font-bold text-[#1f8a4c]&quot;&gt;{p.revenue.toFixed(2)} د.ت&lt;/td&gt;
+                  &lt;/tr&gt;
+                ))}
+              &lt;/tbody&gt;
+            &lt;/table&gt;
+          &lt;/div&gt;
+        &lt;/&gt;
+      )}
+    &lt;/div&gt;
+  )
+}
+</pre></div>
+
+<h3>Test</h3><ol>
+<li>As admin, open المخزون → + إضافة منتج → إكسسوار → "غلاف سيليكون" / شراء 5 / بيع 15 / كمية 10 / تنبيه عند 3 → حفظ. It should appear in the list.</li>
+<li>Add a second product as هاتف → fill IMEI, battery, condition → حفظ. Quantity should be locked to 1.</li>
+<li>Drop the accessory's stock below 3 by editing it (or sell enough below) → confirm the ⚠ مخزون منخفض banner appears on both المخزون and بيع إكسسوار, and the phone never appears in that banner.</li>
+<li>As comptoir, open بيع إكسسوار → sell the accessory, quantity 2, no client → check Caisse shows +[price×2] labeled "بيع إكسسوار", and stock dropped by 2.</li>
+<li>Sell the phone → Caisse should show the same amount but labeled "بيع هاتف", and the phone disappears from the sell grid (stock now 0).</li>
+<li>Sell something while searching and selecting an existing client → check that client's <code>visits_count</code> went up by 1 (Phase 1's existing trigger handles this automatically).</li>
+<li>In Caisse, request a void on that accessory sale and have admin accept it → stock_quantity should go back up by the sold quantity.</li>
+<li>As comptoir, confirm you cannot see "+ إضافة منتج" or "تعديل" on المخزون if you somehow land there — only admin should have write access (RLS, not just hidden UI).</li>
+<li>Open الأكثر مبيعًا (Reports) → after the sales above, the accessory and the phone should both appear. Switch the sort to "السعر: من الأعلى" / "من الأدنى" and confirm the order flips. Switch period to اليوم and confirm only today's sales count.</li>
+</ol>
 <script>function cp(b){navigator.clipboard.writeText(b.nextElementSibling.innerText).then(()=>{b.textContent='Copied';setTimeout(()=>b.textContent='Copy',1200)})}</script></body></html>
