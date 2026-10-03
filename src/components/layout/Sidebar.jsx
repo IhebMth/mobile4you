@@ -11,11 +11,13 @@ const NAV_BY_ROLE = {
     { to: '/comptoir/general-expenses', label: 'مصاريف عامة', icon: '💵' },
     { to: '/caisse', label: 'الصندوق', icon: '💰' },
     { to: '/comptoir/debts', label: 'ديون الحرفاء', icon: '🧾' },
+    { to: '/price-guide', label: 'دليل الأسعار', icon: '💲' },
   ],
   technicien: [
     { to: '/technicien', label: 'أجهزتي', icon: '🔧' },
     { to: '/technicien/expenses', label: 'مصاريف قطع الغيار', icon: '🛠️' },
     { to: '/technicien/general-expenses', label: 'مصاريف عامة', icon: '💵' },
+    { to: '/price-guide', label: 'دليل الأسعار', icon: '💲' },
   ],
   admin: [
     { to: '/admin', label: 'لوحة التحكم', icon: '📊' },
@@ -29,6 +31,7 @@ const NAV_BY_ROLE = {
     { to: '/admin/debts', label: 'الديون والسلف', icon: '🧾' },
     { to: '/admin/reports/daily', label: 'التقرير اليومي', icon: '📅' },
     { to: '/admin/reports', label: 'التقارير', icon: '📈' },
+    { to: '/price-guide', label: 'دليل الأسعار', icon: '💲' },
   ],
 }
 

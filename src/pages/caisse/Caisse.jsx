@@ -21,7 +21,11 @@ const INCOME_TYPES = ['repair_income', 'accessory_sale', 'debt_collection', 'loa
 const isIncome = (t) => INCOME_TYPES.includes(t.type)
 
 function labelOf(t) {
-  return t.type === 'expense_out' ? SOURCE_LABELS[t.source_type] || 'مصروف' : TYPE_LABELS[t.type] || t.type
+  if (t.type === 'expense_out') return SOURCE_LABELS[t.source_type] || 'مصروف'
+  // type stays "accessory_sale" for both regular accessories and phones —
+  // source_type is what actually tells them apart
+  if (t.type === 'accessory_sale' && t.source_type === 'phone_sale') return 'بيع هاتف'
+  return TYPE_LABELS[t.type] || t.type
 }
 
 export default function Caisse() {

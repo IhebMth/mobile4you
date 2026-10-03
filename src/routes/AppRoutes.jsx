@@ -25,6 +25,7 @@ import DailyReport from '../pages/admin/DailyReport'
 import Caisse from '../pages/caisse/Caisse'
 import Debts from '../pages/shared/Debts'
 import VoidRequests from '../pages/admin/VoidRequests'
+import PriceGuide from '../pages/shared/PriceGuide'
 
 export default function AppRoutes() {
   return (
@@ -34,6 +35,13 @@ export default function AppRoutes() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/track/:access_token" element={<TrackOrder />} />
+
+          {/* Shared by all three roles — registered ONCE.
+              (Registering the same path inside each role wrapper makes React Router
+              match the first wrapper only, and a role not in it is sent to /unauthorized.) */}
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'comptoir', 'technicien']} />}>
+            <Route path="/price-guide" element={<PriceGuide />} />
+          </Route>
 
           {/* Comptoir + Admin */}
           <Route element={<ProtectedRoute allowedRoles={['admin', 'comptoir']} />}>

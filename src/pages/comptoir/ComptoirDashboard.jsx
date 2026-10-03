@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import StatusBadge from '../../components/ui/StatusBadge'
@@ -14,11 +14,20 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'ملغى' },
 ]
 
+const SORT_OPTIONS = [
+  { value: 'date_desc', label: 'الأحدث أولًا' },
+  { value: 'date_asc', label: 'الأقدم أولًا' },
+  { value: 'price_desc', label: 'السعر: من الأعلى' },
+  { value: 'price_asc', label: 'السعر: من الأدنى' },
+]
+
 export default function ComptoirDashboard() {
   const { user } = useAuth()
   const [orders, setOrders] = useState([])
   const [technicians, setTechnicians] = useState([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState('date_desc')
 
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [form, setForm] = useState(null)
@@ -55,6 +64,33 @@ export default function ComptoirDashboard() {
     loadTechnicians()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Search box matches order number, client name, phone, or device model —
+  // all client-side against the 50 most recent orders already loaded.
+  // Sort re-orders that same filtered list; nothing re-fetches from the server.
+  const visibleOrders = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    let list = !q
+      ? orders
+      : orders.filter((o) => {
+          const hay = [
+            o.order_number, o.device_model,
+            o.clients?.full_name, o.clients?.phone,
+          ].join(' ').toLowerCase()
+          return hay.includes(q)
+        })
+
+    list = [...list].sort((a, b) => {
+      if (sortBy === 'date_desc') return new Date(b.created_at) - new Date(a.created_at)
+      if (sortBy === 'date_asc') return new Date(a.created_at) - new Date(b.created_at)
+      const pa = a.final_price ?? -1
+      const pb = b.final_price ?? -1
+      if (sortBy === 'price_desc') return pb - pa
+      if (sortBy === 'price_asc') return pa - pb
+      return 0
+    })
+    return list
+  }, [orders, search, sortBy])
 
   function openModal(order) {
     setSelectedOrder(order)
@@ -192,6 +228,8 @@ export default function ComptoirDashboard() {
     closeModal()
   }
 
+  const inp = 'px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b]'
+
   return (
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end mb-6 pb-4 border-b border-[#e5e5e5]">
@@ -206,19 +244,40 @@ export default function ComptoirDashboard() {
         </Link>
       </div>
 
+      {/* search + sort */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-5">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="فتّش برقم الطلب، اسم الحريف، الهاتف، أو الجهاز"
+          className={inp + ' flex-1'}
+        />
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className={inp + ' bg-white sm:w-52'}
+        >
+          {SORT_OPTIONS.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+      </div>
+
       {loading ? (
         <div className="bg-white border border-[#e5e5e5] rounded-xl">
           <p className="p-6 text-sm text-[#6b6b6b]">جاري التحميل...</p>
         </div>
-      ) : orders.length === 0 ? (
+      ) : visibleOrders.length === 0 ? (
         <div className="bg-white border border-[#e5e5e5] rounded-xl">
-          <p className="p-6 text-sm text-[#6b6b6b]">ما فماش طلبات بعد</p>
+          <p className="p-6 text-sm text-[#6b6b6b]">
+            {orders.length === 0 ? 'ما فماش طلبات بعد' : 'ما فماش نتائج لهذا البحث'}
+          </p>
         </div>
       ) : (
         <>
           {/* Phone / tablet: one card per order, no sideways scrolling */}
           <div className="lg:hidden flex flex-col gap-3">
-            {orders.map((o) => (
+            {visibleOrders.map((o) => (
               <button
                 key={o.id}
                 onClick={() => openModal(o)}
@@ -260,7 +319,7 @@ export default function ComptoirDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o) => (
+                {visibleOrders.map((o) => (
                   <tr key={o.id} onClick={() => openModal(o)} className="hover:bg-[#fbfaf6] cursor-pointer">
                     <td className="px-5 py-3.5 border-b border-[#ececE4] font-bold text-[#b3170f]" dir="ltr" style={{ textAlign: 'right' }}>
                       {o.order_number}
