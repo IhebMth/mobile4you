@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import LowStockAlert from '../shared/LowStockAlert'
 import ColorDot from '../shared/ColorDot'
@@ -27,7 +28,20 @@ export default function SellAccessory() {
   const [saveError, setSaveError] = useState(null)
   const [successMsg, setSuccessMsg] = useState(null)
 
+  const [searchParams, setSearchParams] = useSearchParams()
+
   useEffect(() => { load() }, [])
+
+  // Scanned a stock label (/p/<id> -> /comptoir/sell?item=<id>): open the sale dialog for that product
+  useEffect(() => {
+    const id = searchParams.get('item')
+    if (!id || loading) return
+    const found = items.find((a) => a.id === id)
+    if (found) openSell(found)
+    else setError('هذا المنتج نفد من المخزون أو ما عادش موجود')
+    setSearchParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
   async function load() {
     setLoading(true)

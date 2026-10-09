@@ -4,6 +4,9 @@ import { supabase } from '../../lib/supabaseClient'
 import StatusBadge from '../../components/ui/StatusBadge'
 import { useAuth } from '../../context/AuthContext'
 import UnpaidDeliveryButton from '../shared/UnpaidDeliveryButton'
+import PrintOrderDialog from '../../components/qr/PrintOrderDialog'
+import { PaymentBadge, PickupBadge, PaymentSummary } from '../shared/OrderBadges'
+import FideleDiscount from '../shared/FideleDiscount'
 
 const STATUS_OPTIONS = [
   { value: 'received', label: 'استُلم' },
@@ -26,7 +29,9 @@ export default function ComptoirDashboard() {
   const [orders, setOrders] = useState([])
   const [technicians, setTechnicians] = useState([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  // ?q=ORD123 (from scanning a device sticker) pre-fills the search box
+  const [search, setSearch] = useState(() => new URLSearchParams(window.location.search).get('q') || '')
+  const [printOrder, setPrintOrder] = useState(null)
   const [sortBy, setSortBy] = useState('date_desc')
 
   const [selectedOrder, setSelectedOrder] = useState(null)
@@ -43,7 +48,7 @@ export default function ComptoirDashboard() {
   async function loadOrders() {
     const { data } = await supabase
       .from('repair_orders')
-      .select('id, order_number, device_model, issue_description, status, technician_id, price_min, price_max, final_price, price_confirmed, created_at, client_id, clients(full_name, phone)')
+      .select('id, order_number, access_token, device_model, issue_description, status, technician_id, price_min, price_max, final_price, discount, discount_percent, discount_decision, price_confirmed, created_at, client_id, client_acknowledged, client_pickup_eta, clients(full_name, phone, is_fidele), debts(kind, amount, paid_amount, status)')
       .order('created_at', { ascending: false })
       .limit(50)
     setOrders(data || [])
@@ -62,6 +67,9 @@ export default function ComptoirDashboard() {
   useEffect(() => {
     loadOrders()
     loadTechnicians()
+    // refresh every 30s so "the client will come" (from the QR page) shows up without reloading
+    const t = setInterval(loadOrders, 30000)
+    return () => clearInterval(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -161,7 +169,7 @@ export default function ComptoirDashboard() {
               price_min: form.priceMin ? Number(form.priceMin) : null,
               price_max: form.priceMax ? Number(form.priceMax) : null,
               technician_id: form.technicianId,
-              clients: { full_name: form.clientName.trim(), phone: form.clientPhone.trim() },
+              clients: { ...o.clients, full_name: form.clientName.trim(), phone: form.clientPhone.trim() },
             }
           : o
       )
@@ -228,6 +236,12 @@ export default function ComptoirDashboard() {
     closeModal()
   }
 
+  // fidele discount decided (here by comptoir, or by the technicien on his page)
+  function handleDiscountChanged(updates) {
+    setOrders((prev) => prev.map((o) => (o.id === selectedOrder.id ? { ...o, ...updates } : o)))
+    setSelectedOrder((prev) => ({ ...prev, ...updates }))
+  }
+
   const inp = 'px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b]'
 
   return (
@@ -289,8 +303,12 @@ export default function ComptoirDashboard() {
                   </span>
                   <StatusBadge status={o.status} />
                 </div>
-                <p className="font-semibold text-[#1a1a1a] text-sm">{o.clients?.full_name}</p>
+                <p className="font-semibold text-[#1a1a1a] text-sm">{o.clients?.is_fidele && '⭐ '}{o.clients?.full_name}</p>
                 <p className="text-xs text-[#6b6b6b]">{o.clients?.phone}</p>
+                <div className="flex flex-wrap gap-1.5 mt-2 empty:hidden">
+                  <PickupBadge order={o} />
+                  <PaymentBadge order={o} />
+                </div>
                 <div className="flex justify-between items-center mt-3 pt-3 border-t border-[#f0f0ea]">
                   <span className="text-xs text-[#6b6b6b]">{o.device_model}</span>
                   {o.final_price ? (
@@ -325,8 +343,12 @@ export default function ComptoirDashboard() {
                       {o.order_number}
                     </td>
                     <td className="px-5 py-3.5 border-b border-[#ececE4]">
-                      {o.clients?.full_name}
+                      {o.clients?.is_fidele && '⭐ '}{o.clients?.full_name}
                       <div className="text-xs text-[#6b6b6b]">{o.clients?.phone}</div>
+                      <div className="flex flex-wrap gap-1 mt-1.5 empty:hidden">
+                        <PickupBadge order={o} />
+                        <PaymentBadge order={o} />
+                      </div>
                     </td>
                     <td className="px-5 py-3.5 border-b border-[#ececE4]">{o.device_model}</td>
                     <td className="px-5 py-3.5 border-b border-[#ececE4]">
@@ -384,6 +406,9 @@ export default function ComptoirDashboard() {
             </div>
 
             <h4 className="text-xs font-bold text-[#e4211b] mb-3">معلومات الحريف</h4>
+            {selectedOrder.client_acknowledged && selectedOrder.status === 'ready' && (
+              <div className="mb-3"><PickupBadge order={selectedOrder} /></div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               <div>
                 <label className="block text-xs text-[#6b6b6b] mb-1">اسم الحريف</label>
@@ -465,6 +490,9 @@ export default function ComptoirDashboard() {
               {saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
             </button>
 
+            {/* fidele client: apply the discount? (comptoir or technicien can answer) */}
+            <FideleDiscount order={selectedOrder} onChanged={handleDiscountChanged} />
+
             <div className="pt-4 border-t border-[#e5e5e5]">
               <h4 className="text-xs font-bold text-[#e4211b] mb-2">السعر النهائي (من التقني)</h4>
               {selectedOrder.final_price ? (
@@ -489,6 +517,21 @@ export default function ComptoirDashboard() {
                 <p className="text-xs text-[#6b6b6b]">التقني ما حددش السعر النهائي بعد.</p>
               )}
 
+              {/* total / paid / remaining */}
+              <PaymentSummary order={selectedOrder} />
+
+              {/* QR: reprint the client receipt / device sticker */}
+              <button
+                type="button"
+                onClick={() => setPrintOrder({
+                  ...selectedOrder,
+                  client_name: selectedOrder.clients?.full_name,
+                })}
+                className="w-full border border-[#e5e5e5] text-[#1a1a1a] text-sm font-semibold px-4 py-2.5 rounded-lg hover:bg-[#f7f7f7] mt-3"
+              >
+                🖨 طباعة الوصل / الملصق (QR)
+              </button>
+
               {/* Customer leaves without paying everything (only shows after the price is confirmed) */}
               {selectedOrder.status !== 'cancelled' && (
                 <UnpaidDeliveryButton order={selectedOrder} onDone={handleUnpaidDone} />
@@ -505,6 +548,8 @@ export default function ComptoirDashboard() {
           </div>
         </div>
       )}
+
+      {printOrder && <PrintOrderDialog order={printOrder} onClose={() => setPrintOrder(null)} />}
     </div>
   )
 }

@@ -26,6 +26,9 @@ import Caisse from '../pages/caisse/Caisse'
 import Debts from '../pages/shared/Debts'
 import VoidRequests from '../pages/admin/VoidRequests'
 import PriceGuide from '../pages/shared/PriceGuide'
+import ScanRedirect from '../pages/shared/ScanRedirect'
+import ProductScanRedirect from '../pages/shared/ProductScanRedirect'
+import Clients from '../pages/shared/Clients'
 
 export default function AppRoutes() {
   return (
@@ -41,6 +44,8 @@ export default function AppRoutes() {
               match the first wrapper only, and a role not in it is sent to /unauthorized.) */}
           <Route element={<ProtectedRoute allowedRoles={['admin', 'comptoir', 'technicien']} />}>
             <Route path="/price-guide" element={<PriceGuide />} />
+            <Route path="/o/:orderNumber" element={<ScanRedirect />} />
+            <Route path="/p/:productId" element={<ProductScanRedirect />} />
           </Route>
 
           {/* Comptoir + Admin */}
@@ -52,6 +57,7 @@ export default function AppRoutes() {
             <Route path="/comptoir/general-expenses" element={<GeneralExpenses />} />
             <Route path="/caisse" element={<Caisse />} />
             <Route path="/comptoir/debts" element={<Debts />} />
+          <Route path="/comptoir/clients" element={<Clients />} />
           </Route>
 
           {/* Technicien + Admin */}
@@ -72,6 +78,7 @@ export default function AppRoutes() {
             <Route path="/admin/expenses-approval" element={<ExpensesApproval />} />
             <Route path="/admin/void-requests" element={<VoidRequests />} />
             <Route path="/admin/debts" element={<Debts />} />
+            <Route path="/admin/clients" element={<Clients />} />
             <Route path="/admin/reports" element={<Reports />} />
             <Route path="/admin/reports/daily" element={<DailyReport />} />
           </Route>

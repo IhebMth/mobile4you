@@ -32,43 +32,22 @@ async function requireAdmin(req: Request) {
 }
 const admin = () => createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
 
+// Returns { users: { [id]: email } } so the admin page can show each employee's login email.
+// (Emails live in auth.users, which the browser cannot read directly.)
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors })
   try {
     const g = await requireAdmin(req)
     if (g instanceof Response) return g
-
-    const b = await req.json()
-    const email = String(b.email ?? "").trim().toLowerCase()
-    const password = String(b.password ?? "")
-    const full_name = String(b.full_name ?? "").trim()
-    const phone = String(b.phone ?? "").trim() || null
-    const role = cleanRole(b.role)
-
-    if (!email || !password || !full_name) return json({ error: "بيانات ناقصة" }, 400)
-    if (!role) return json({ error: "الدور غير صالح: " + String(b.role) }, 400)
-    if (password.length < 6) return json({ error: "كلمة السر لازم 6 أحرف على الأقل" }, 400)
-    if (role === "admin" && g.callerRole !== "super_admin")
-      return json({ error: "فقط Super Admin يقدر يضيف حساب admin" }, 403)
-
     const sa = admin()
-    const { data: created, error: cErr } = await sa.auth.admin.createUser({
-      email, password, email_confirm: true, user_metadata: { full_name, role },
-    })
-    if (cErr) return json({ error: cErr.message }, 400)
-
-    // the trigger handle_new_user already created the profile with this role.
-    // We only add the phone here (and the role only if it differs).
-    const { data: prof } = await sa.from("profiles").select("role").eq("id", created.user.id).maybeSingle()
-    const patch: Record<string, unknown> = { phone }
-    if (!prof) {
-      await sa.from("profiles").insert({ id: created.user.id, full_name, role, phone })
-    } else {
-      if (prof.role !== role) patch.role = role
-      const { error: uErr } = await sa.from("profiles").update(patch).eq("id", created.user.id)
-      if (uErr) return json({ success: true, user_id: created.user.id, warning: uErr.message })
+    const map: Record<string, string> = {}
+    for (let page = 1; page <= 20; page++) {
+      const { data, error } = await sa.auth.admin.listUsers({ page, perPage: 200 })
+      if (error) return json({ error: error.message }, 400)
+      for (const u of data.users) map[u.id] = u.email ?? ""
+      if (data.users.length < 200) break
     }
-    return json({ success: true, user_id: created.user.id })
+    return json({ users: map })
   } catch (err) {
     return json({ error: (err as Error).message }, 500)
   }

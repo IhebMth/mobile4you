@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
+import PrintOrderDialog from '../../components/qr/PrintOrderDialog'
 
 export default function NewRepairOrder() {
   const { user } = useAuth()
@@ -17,6 +18,7 @@ export default function NewRepairOrder() {
   const [technicians, setTechnicians] = useState([])
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [printOrder, setPrintOrder] = useState(null) // set after save -> shows the QR / print dialog
 
   useEffect(() => {
     async function loadTechnicians() {
@@ -76,7 +78,7 @@ export default function NewRepairOrder() {
 
     const orderNumber = 'ORD' + Date.now().toString().slice(-8)
 
-    const { error: orderError } = await supabase.from('repair_orders').insert({
+    const { data: createdOrder, error: orderError } = await supabase.from('repair_orders').insert({
       order_number: orderNumber,
       client_id: clientId,
       device_model: deviceModel.trim(),
@@ -86,12 +88,19 @@ export default function NewRepairOrder() {
       comptoir_id: user.id,
       technician_id: technicianId,
       status: 'received',
-    })
+    }).select('id, order_number, access_token, created_at').single()
 
     setSaving(false)
 
     if (orderError) setError('خطأ: ' + orderError.message)
-    else navigate('/comptoir')
+    else setPrintOrder({
+      ...createdOrder,
+      device_model: deviceModel.trim(),
+      issue_description: issue.trim(),
+      price_min: priceMin ? Number(priceMin) : null,
+      price_max: priceMax ? Number(priceMax) : null,
+      client_name: clientName.trim(),
+    })
   }
 
   return (
@@ -101,70 +110,34 @@ export default function NewRepairOrder() {
         <p className="text-sm text-[#6b6b6b]">عمر بيانات الحريف والجهاز باش تبدا عملية الصيانة</p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white border border-[#e5e5e5] rounded-xl p-8 max-w-xl"
-      >
-        <h3 className="text-xs font-bold text-[#e4211b] pb-2 mb-4 border-b border-[#e5e5e5]">
-          معلومات الحريف
-        </h3>
+      <form onSubmit={handleSubmit} className="bg-white border border-[#e5e5e5] rounded-xl p-8 max-w-xl">
+        <h3 className="text-xs font-bold text-[#e4211b] pb-2 mb-4 border-b border-[#e5e5e5]">معلومات الحريف</h3>
 
         <div className="mb-4">
           <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">اسم الحريف</label>
-          <input
-            value={clientName}
-            onChange={(e) => setClientName(e.target.value)}
-            placeholder="مثال: سامي الطرابلسي"
-            className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]"
-            required
-          />
+          <input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="مثال: سامي الطرابلسي" className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]" required />
         </div>
 
         <div className="mb-4">
           <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">رقم الهاتف</label>
-          <input
-            value={clientPhone}
-            onChange={(e) => setClientPhone(e.target.value)}
-            placeholder="21654321"
-            className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]"
-            required
-          />
+          <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="21654321" className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]" required />
         </div>
 
-        <h3 className="text-xs font-bold text-[#e4211b] pb-2 mb-4 mt-7 border-b border-[#e5e5e5]">
-          معلومات الجهاز
-        </h3>
+        <h3 className="text-xs font-bold text-[#e4211b] pb-2 mb-4 mt-7 border-b border-[#e5e5e5]">معلومات الجهاز</h3>
 
         <div className="mb-4">
           <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">موديل الجهاز</label>
-          <input
-            value={deviceModel}
-            onChange={(e) => setDeviceModel(e.target.value)}
-            placeholder="مثال: iPhone 12 Pro"
-            className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]"
-            required
-          />
+          <input value={deviceModel} onChange={(e) => setDeviceModel(e.target.value)} placeholder="مثال: iPhone 12 Pro" className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]" required />
         </div>
 
         <div className="mb-4">
           <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">وصف العطل</label>
-          <textarea
-            value={issue}
-            onChange={(e) => setIssue(e.target.value)}
-            placeholder="مثال: الشاشة مكسورة، ما يشحنش..."
-            className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm min-h-[80px] resize-y focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]"
-            required
-          />
+          <textarea value={issue} onChange={(e) => setIssue(e.target.value)} placeholder="مثال: الشاشة مكسورة، ما يشحنش..." className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm min-h-[80px] resize-y focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]" required />
         </div>
 
         <div className="mb-4">
           <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">التقني المسنّد</label>
-          <select
-            value={technicianId}
-            onChange={(e) => setTechnicianId(e.target.value)}
-            className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]"
-            required
-          >
+          <select value={technicianId} onChange={(e) => setTechnicianId(e.target.value)} className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]" required>
             <option value="">-- اختار تقني --</option>
             {technicians.map((t) => (
               <option key={t.id} value={t.id}>{t.full_name}</option>
@@ -180,42 +153,26 @@ export default function NewRepairOrder() {
             السعر التقديري <span className="text-[#6b6b6b] font-normal text-xs">(اختياري)</span>
           </label>
           <div className="flex gap-2.5">
-            <input
-              type="number"
-              value={priceMin}
-              onChange={(e) => setPriceMin(e.target.value)}
-              placeholder="من (د.ت)"
-              className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]"
-            />
-            <input
-              type="number"
-              value={priceMax}
-              onChange={(e) => setPriceMax(e.target.value)}
-              placeholder="إلى (د.ت)"
-              className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]"
-            />
+            <input type="number" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} placeholder="من (د.ت)" className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]" />
+            <input type="number" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} placeholder="إلى (د.ت)" className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]" />
           </div>
         </div>
 
         {error && <p className="text-[#b3170f] text-sm mt-3">{error}</p>}
 
         <div className="flex gap-2.5 mt-6 pt-5 border-t border-[#e5e5e5]">
-          <button
-            type="submit"
-            disabled={saving}
-            className="bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90 disabled:opacity-60"
-          >
+          <button type="submit" disabled={saving} className="bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90 disabled:opacity-60">
             {saving ? 'جاري الحفظ...' : 'حفظ واستقبال'}
           </button>
-          <button
-            type="button"
-            onClick={() => navigate('/comptoir')}
-            className="border border-[#e5e5e5] text-[#1a1a1a] text-sm px-4 py-2.5 rounded-lg hover:bg-[#f7f7f7]"
-          >
+          <button type="button" onClick={() => navigate('/comptoir')} className="border border-[#e5e5e5] text-[#1a1a1a] text-sm px-4 py-2.5 rounded-lg hover:bg-[#f7f7f7]">
             إلغاء
           </button>
         </div>
       </form>
+
+      {printOrder && (
+        <PrintOrderDialog order={printOrder} onClose={() => navigate('/comptoir')} />
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import logo from '../assets/logo.png'
 
@@ -7,6 +7,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function Login() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -62,6 +63,14 @@ export default function Login() {
       return
     }
 
+    // Came here from a protected page (e.g. scanning a device sticker)? Go back to it.
+    // Only same-site paths are accepted, so a crafted ?next=https://evil.com is ignored.
+    const next = searchParams.get('next')
+    if (next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/login')) {
+      navigate(next, { replace: true })
+      return
+    }
+
     if (profile.role === 'admin' || profile.role === 'super_admin') navigate('/admin')
     else if (profile.role === 'comptoir') navigate('/comptoir')
     else if (profile.role === 'technicien') navigate('/technicien')
@@ -70,19 +79,14 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-[#f7f7f7] flex items-center justify-center p-6">
-      <form
-        onSubmit={handleLogin}
-        className="bg-white border border-[#e5e5e5] rounded-2xl p-10 w-full max-w-sm shadow-sm"
-      >
+      <form onSubmit={handleLogin} className="bg-white border border-[#e5e5e5] rounded-2xl p-10 w-full max-w-sm shadow-sm">
         <div className="flex flex-col items-center mb-8">
           <img src={logo} alt="Mobile 4 You" className="w-16 h-16 rounded-xl object-cover mb-3" />
           <h1 className="text-lg font-extrabold text-[#1a1a1a]">MOBILE 4 YOU</h1>
           <p className="text-sm text-[#6b6b6b] mt-1">تسجيل الدخول</p>
         </div>
 
-        <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">
-          البريد الإلكتروني
-        </label>
+        <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">البريد الإلكتروني</label>
         <input
           type="email"
           value={email}
@@ -91,9 +95,7 @@ export default function Login() {
           className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm mb-4 focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]"
         />
 
-        <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">
-          كلمة السر
-        </label>
+        <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">كلمة السر</label>
         <div className="relative mb-5">
           <input
             type={showPassword ? 'text' : 'password'}
@@ -108,27 +110,13 @@ export default function Login() {
             className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6b6b6b] hover:text-[#1a1a1a]"
             tabIndex={-1}
           >
-            {showPassword ? (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
-                <line x1="1" y1="1" x2="23" y2="23" />
-              </svg>
-            ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            )}
+            {showPassword ? '🙈' : '👁️'}
           </button>
         </div>
 
         {error && <p className="text-[#b3170f] text-sm mb-4">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-[#e4211b] text-white font-semibold py-2.5 rounded-lg text-sm hover:opacity-90 disabled:opacity-60"
-        >
+        <button type="submit" disabled={loading} className="w-full bg-[#e4211b] text-white font-semibold py-2.5 rounded-lg text-sm hover:opacity-90 disabled:opacity-60">
           {loading ? 'جاري الدخول...' : 'دخول'}
         </button>
       </form>

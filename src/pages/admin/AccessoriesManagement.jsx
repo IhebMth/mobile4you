@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import LowStockAlert from '../shared/LowStockAlert'
 import ColorDot from '../shared/ColorDot'
 import PhoneInfo from '../shared/PhoneInfo'
+import LabelPrintDialog from '../../components/qr/LabelPrintDialog'
 import { COLORS } from '../../lib/productColors'
 import { phoneOf } from '../../lib/phoneDetails'
 
@@ -80,6 +82,17 @@ function Thumb({ a, size = 'w-16 h-16' }) {
   )
 }
 
+// ✏️ edit + 🏷️ label (QR sticker for this product)
+function RowActions({ onEdit, onLabel }) {
+  return (
+    <div className="flex items-center gap-2">
+      <button type="button" onClick={onLabel} aria-label="طباعة ملصق QR"
+        className="inline-flex items-center justify-center min-h-[36px] w-10 rounded-lg border border-[#e5e5e5] bg-white text-sm hover:border-[#e4211b] active:bg-[#fdeaea] transition-colors">🏷️</button>
+      <EditButton onClick={onEdit} />
+    </div>
+  )
+}
+
 function EditButton({ onClick }) {
   return (
     <button type="button" onClick={onClick}
@@ -96,16 +109,41 @@ export default function AccessoriesManagement() {
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState('all') // all | accessory | phone
 
-  const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState(null)
-  const [form, setForm] = useState(emptyForm())
+  // The sheet is saved in sessionStorage while it is open: if the phone browser reloads the page
+  // (coming back from the camera / gallery, switching app, Vite dev server reconnecting), the sheet
+  // and everything typed in it come back instead of vanishing.
+  const DRAFT_KEY = 'm4u-stock-draft'
+  const draft = (() => { try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null') } catch { return null } })()
+  const [showForm, setShowForm] = useState(!!draft)
+  const [editingId, setEditingId] = useState(draft ? draft.editingId : null)
+  const [form, setForm] = useState(draft ? { ...emptyForm(), ...draft.form } : emptyForm())
   const [imageFile, setImageFile] = useState(null)
   const [existingImageUrl, setExistingImageUrl] = useState(null)
   const [removeImage, setRemoveImage] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState(null)
+  const [labelItem, setLabelItem] = useState(null) // product whose QR label is being printed
+  const [searchParams, setSearchParams] = useSearchParams()
 
   useEffect(() => { load() }, [])
+
+  // Scanned a stock label (/p/<id> -> /admin/accessories?item=<id>): open that product's edit sheet
+  useEffect(() => {
+    const id = searchParams.get('item')
+    if (!id || loading) return
+    const found = items.find((a) => a.id === id)
+    if (found) openEdit(found)
+    else setError('هذا المنتج غير موجود أو تم حذفه')
+    setSearchParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
+
+  useEffect(() => {
+    try {
+      if (showForm) sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ editingId, form }))
+      else sessionStorage.removeItem(DRAFT_KEY)
+    } catch { /* storage full or blocked: ignore */ }
+  }, [showForm, editingId, form])
 
   useEffect(() => {
     if (!showForm) return
@@ -341,7 +379,7 @@ export default function AccessoriesManagement() {
                       {Number(a.sale_price).toFixed(2)} د.ت
                     </span>
                   </div>
-                  <EditButton onClick={() => openEdit(a)} />
+                  <RowActions onEdit={() => openEdit(a)} onLabel={() => setLabelItem(a)} />
                 </div>
               </div>
             ))}
@@ -381,7 +419,7 @@ export default function AccessoriesManagement() {
                     <td className="px-5 py-3.5 border-b border-[#f0f0ea]"><StockBadge a={a} /></td>
                     <td className="px-5 py-3.5 border-b border-[#f0f0ea] font-extrabold text-[#1f8a4c]">{Number(a.sale_price).toFixed(2)} د.ت</td>
                     <td className="px-5 py-3.5 border-b border-[#f0f0ea] text-xs text-[#6b6b6b]">{a.supplier || '—'}</td>
-                    <td className="px-5 py-3.5 border-b border-[#f0f0ea] text-left"><EditButton onClick={() => openEdit(a)} /></td>
+                    <td className="px-5 py-3.5 border-b border-[#f0f0ea] text-left"><RowActions onEdit={() => openEdit(a)} onLabel={() => setLabelItem(a)} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -390,11 +428,16 @@ export default function AccessoriesManagement() {
         </>
       )}
 
+      {labelItem && <LabelPrintDialog item={labelItem} onClose={() => setLabelItem(null)} />}
+
       {/* add / edit — bottom sheet on phone, centered dialog on desktop */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
-          onClick={(e) => { if (e.target === e.currentTarget && !saving) setShowForm(false) }}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40">
+          {/* No tap-outside-to-close here on purpose: this form can hold a lot of typed
+              input (IMEI, prices...), and an accidental tap on the dark overlay while
+              scrolling on a phone used to wipe it all out. Close only via the ✕ or إلغاء. */}
           <form onSubmit={submitForm}
+            onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.preventDefault() }}
             className="bg-white w-full sm:max-w-lg max-h-[94vh] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-xl">
             {/* sticky title */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#e5e5e5] shrink-0">
