@@ -1,14 +1,19 @@
 {
+  "id": "/",
   "name": "Mobile 4 You",
-  "short_name": "M4U",
+  "short_name": "Mobile 4 You",
+  "description": "إدارة ورشة تصليح الهواتف",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#1a1a1a",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
   "theme_color": "#e4211b",
   "lang": "ar",
   "dir": "rtl",
   "icons": [
-    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

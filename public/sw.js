@@ -2,12 +2,16 @@
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()))
 
+// Required by some browsers (Chrome / Brave on Android) before they offer "Install app".
+// It does nothing: every request goes to the network as usual.
+self.addEventListener('fetch', () => {})
+
 self.addEventListener('push', (event) => {
   let d = {}
   try {
     d = event.data.json()
   } catch {
-    // Ignore malformed push payloads.
+    d = {}
   }
   event.waitUntil((async () => {
     // Android / desktop: if the app is open on screen, the in-app toast already shows it.
@@ -18,7 +22,7 @@ self.addEventListener('push', (event) => {
     await self.registration.showNotification(d.title || 'Mobile 4 You', {
       body: d.body || '',
       icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      badge: '/badge-96.png',   // small white silhouette in the Android status bar
       tag: d.tag,
       data: { url: d.url || '/' },
       dir: 'rtl',

@@ -8,7 +8,11 @@ webpush.setVapidDetails(
   Deno.env.get('VAPID_PUBLIC_KEY')!,
   Deno.env.get('VAPID_PRIVATE_KEY')!,
 )
-const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+// the key is stored under SUPABASE_SERVICE_ROLE_KEY (built in) or SERVICE_ROLE_KEY (your own secret)
+const db = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  (Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!,
+)
 
 Deno.serve(async (req) => {
   if (req.headers.get('x-webhook-secret') !== Deno.env.get('WEBHOOK_SECRET')) {
@@ -33,8 +37,11 @@ Deno.serve(async (req) => {
     try {
       await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload)
     } catch (e: any) {
+      // 404 / 410 = the phone removed the subscription: forget it. Anything else is written to the logs.
       if (e.statusCode === 404 || e.statusCode === 410) await db.from('push_subscriptions').delete().eq('id', s.id)
+      else console.error('push failed', e.statusCode, String(e.body || e.message).slice(0, 200))
     }
   }))
+  console.log('push sent to', (subs ?? []).length, 'device(s) for notification', n.id)
   return new Response('ok')
 })
