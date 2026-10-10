@@ -36,7 +36,13 @@ const db = createClient(
 )
 
 Deno.serve(async (req) => {
-  if (req.headers.get('x-webhook-secret') !== Deno.env.get('WEBHOOK_SECRET')) {
+  // Same cleaning on both sides, so a trailing space / line break / quotes saved with the secret
+  // cannot cause a mismatch. Only the LENGTHS are written to the log (never the secrets themselves).
+  const sent = clean(req.headers.get('x-webhook-secret'))
+  const expected = clean(Deno.env.get('WEBHOOK_SECRET'))
+  if (!expected || sent !== expected) {
+    console.error(`403 forbidden: Script R sent ${sent.length} characters, WEBHOOK_SECRET has ${expected.length}` +
+      (expected ? '' : ' (WEBHOOK_SECRET is not set)'))
     return new Response('forbidden', { status: 403 })
   }
   if (vapidError) return new Response(vapidError, { status: 500 })
