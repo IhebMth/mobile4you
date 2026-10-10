@@ -1,13 +1,34 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 
-// Called by a Database Webhook every time a row is inserted into `notifications`.
+// Called by the database trigger (Script R) every time a row is inserted into `notifications`.
 // Finds the phones of the recipients and sends the Web Push. Dead subscriptions are deleted.
-webpush.setVapidDetails(
-  Deno.env.get('VAPID_SUBJECT')!,
-  Deno.env.get('VAPID_PUBLIC_KEY')!,
-  Deno.env.get('VAPID_PRIVATE_KEY')!,
-)
+
+// The 3 secrets are cleaned before use. A key copied from a terminal or a dashboard often carries
+// spaces, quotes, a line break or a trailing "=" — web-push then refuses it with
+// "Vapid public key must be a URL safe Base 64 (without '=')" and the whole function crashes.
+const clean = (v?: string | null) => (v ?? '').trim().replace(/^["']+|["']+$/g, '').trim()
+const b64url = (v?: string | null) =>
+  clean(v).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')
+
+// If the keys are wrong we do NOT crash: we remember the reason and answer with it,
+// so it shows up in plain words in `net._http_response` (and in the function logs).
+let vapidError: string | null = null
+try {
+  const pub = b64url(Deno.env.get('VAPID_PUBLIC_KEY'))
+  const priv = b64url(Deno.env.get('VAPID_PRIVATE_KEY'))
+  if (pub.length !== 87) {
+    throw new Error(`VAPID_PUBLIC_KEY has ${pub.length} characters, it must have 87 (it starts with B). Copy the "Public Key" line again.`)
+  }
+  if (priv.length !== 43) {
+    throw new Error(`VAPID_PRIVATE_KEY has ${priv.length} characters, it must have 43. Copy the "Private Key" line again.`)
+  }
+  webpush.setVapidDetails(clean(Deno.env.get('VAPID_SUBJECT')), pub, priv)
+} catch (e) {
+  vapidError = String((e as Error).message ?? e)
+  console.error('VAPID setup failed:', vapidError)
+}
+
 // the key is stored under SUPABASE_SERVICE_ROLE_KEY (built in) or SERVICE_ROLE_KEY (your own secret)
 const db = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -18,6 +39,8 @@ Deno.serve(async (req) => {
   if (req.headers.get('x-webhook-secret') !== Deno.env.get('WEBHOOK_SECRET')) {
     return new Response('forbidden', { status: 403 })
   }
+  if (vapidError) return new Response(vapidError, { status: 500 })
+
   const { record: n } = await req.json()
   if (!n) return new Response('no record')
 

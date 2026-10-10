@@ -9,6 +9,26 @@ function keyToBytes(s) {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)))
 }
 
+// A phone subscription is tied to the public key it was made with. If the key was ever changed
+// (new VAPID pair), the old subscription is dead: the push server rejects it. Detect that.
+function sameKey(sub) {
+  const k = sub.options && sub.options.applicationServerKey
+  if (!k || !KEY) return false
+  const a = new Uint8Array(k)
+  const b = keyToBytes(KEY)
+  return a.length === b.length && a.every((v, i) => v === b[i])
+}
+
+// Existing subscription if it matches the current key, otherwise a fresh one (the old one is removed).
+async function freshSubscription(reg) {
+  let sub = await reg.pushManager.getSubscription()
+  if (sub && !sameKey(sub)) {
+    await sub.unsubscribe()
+    sub = null
+  }
+  return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyToBytes(KEY) })
+}
+
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
 const isStandalone =
   window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true
@@ -38,17 +58,20 @@ export async function enablePush() {
   const perm = await Notification.requestPermission()
   if (perm !== 'granted') return perm
   const reg = await navigator.serviceWorker.ready
-  const sub =
-    (await reg.pushManager.getSubscription()) ||
-    (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyToBytes(KEY) }))
+  const sub = await freshSubscription(reg)
   await save(sub)
   return 'granted'
 }
 
 // On every login: if this phone already allowed notifications, attach it to the logged-in person.
 export async function syncPush() {
-  if (pushState() !== 'granted') return
-  const reg = await navigator.serviceWorker.ready
-  const sub = await reg.pushManager.getSubscription()
-  if (sub) await save(sub)
+  if (pushState() !== 'granted' || !KEY) return
+  try {
+    const reg = await navigator.serviceWorker.ready
+    // permission is already granted, so this can renew the subscription silently (no tap needed)
+    const sub = await freshSubscription(reg)
+    if (sub) await save(sub)
+  } catch (e) {
+    console.warn('push sync failed', e) // never block the login because of push
+  }
 }

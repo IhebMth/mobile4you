@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { useAuth } from '../context/AuthContext'
 import logo from '../assets/logo.png'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -20,6 +21,28 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const { user, profile, loading: authLoading } = useAuth()
+
+  // Where to go after login: the page the person was trying to reach (?next=...), else their own home.
+  // Only same-site paths are accepted, so a crafted ?next=https://evil.com is ignored.
+  function destinationFor(role) {
+    const next = searchParams.get('next')
+    if (next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/login')) return next
+    if (role === 'admin' || role === 'super_admin') return '/admin'
+    if (role === 'comptoir') return '/comptoir'
+    if (role === 'technicien') return '/technicien'
+    return null
+  }
+
+  // Already signed in? Skip the form. The installed app ALWAYS opens at "/", which redirects here —
+  // without this check it looked like the login was lost every time the app was closed, even
+  // though the session was still saved on the phone.
+  useEffect(() => {
+    if (authLoading || !user || !profile) return
+    const to = destinationFor(profile.role)
+    if (to) navigate(to, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user, profile])
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -72,18 +95,18 @@ export default function Login() {
 
     try { localStorage.setItem(LAST_EMAIL_KEY, email.trim()) } catch { /* storage blocked: ignore */ }
 
-    // Came here from a protected page (e.g. scanning a device sticker)? Go back to it.
-    // Only same-site paths are accepted, so a crafted ?next=https://evil.com is ignored.
-    const next = searchParams.get('next')
-    if (next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/login')) {
-      navigate(next, { replace: true })
-      return
-    }
-
-    if (profile.role === 'admin' || profile.role === 'super_admin') navigate('/admin')
-    else if (profile.role === 'comptoir') navigate('/comptoir')
-    else if (profile.role === 'technicien') navigate('/technicien')
+    const to = destinationFor(profile.role)
+    if (to) navigate(to, { replace: true })
     else setError('دور غير معروف: ' + profile.role)
+  }
+
+  // while the saved login is being checked (or we are about to redirect), show a splash, not the form
+  if (authLoading || (user && profile && destinationFor(profile.role))) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f7f7f7] text-sm text-[#6b6b6b]">
+        جاري الدخول...
+      </div>
+    )
   }
 
   return (
