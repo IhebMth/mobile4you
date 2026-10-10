@@ -23,6 +23,33 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const { user, profile, loading: authLoading } = useAuth()
 
+  // TEMPORARY test line, shown under the form only while you are NOT logged in. It tells apart
+  // "the phone wiped the site's data" from "the data is there but the login was refused".
+  // Remove this block (and the <p> at the bottom of the form) once the login stays.
+  const [diag, setDiag] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      let prev = null
+      try { prev = JSON.parse(localStorage.getItem('m4u-boots') || 'null') } catch { /* ignore */ }
+      try { localStorage.setItem('m4u-boots', JSON.stringify({ n: (prev?.n || 0) + 1, last: Date.now() })) } catch { /* ignore */ }
+      const { data, error } = await supabase.auth.getSession()
+      let hasKey = false
+      try { hasKey = Object.keys(localStorage).some((k) => k.startsWith('sb-') && k.endsWith('-auth-token')) } catch { /* ignore */ }
+      if (!cancelled) {
+        setDiag({
+          opens: (prev?.n || 0) + 1,
+          ago: prev ? Math.round((Date.now() - prev.last) / 60000) : null,
+          session: !!data?.session,
+          key: hasKey,
+          app: window.matchMedia('(display-mode: standalone)').matches,
+          err: error?.message || null,
+        })
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
   // Where to go after login: the page the person was trying to reach (?next=...), else their own home.
   // Only same-site paths are accepted, so a crafted ?next=https://evil.com is ignored.
   function destinationFor(role) {
@@ -160,6 +187,12 @@ export default function Login() {
         <button type="submit" disabled={loading} className="w-full h-12 bg-[#e4211b] text-white font-bold rounded-xl text-[15px] hover:opacity-90 disabled:opacity-60 active:scale-[0.99] transition">
           {loading ? 'جاري الدخول...' : 'دخول'}
         </button>
+
+        {diag && (
+          <p className="mt-5 text-[10px] leading-4 text-[#9a9a9a] text-center break-all" dir="ltr">
+            test: opens={diag.opens} · last open={diag.ago === null ? 'first time' : `${diag.ago} min ago`} · saved login={diag.key ? 'yes' : 'NO'} · session={diag.session ? 'yes' : 'no'} · installed app={diag.app ? 'yes' : 'no'}{diag.err ? ` · error=${diag.err}` : ''}
+          </p>
+        )}
       </form>
     </div>
   )
