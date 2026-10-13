@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ScanDialog from './ScanDialog'
 import { routeFromScan } from '../../lib/scanRoute'
+import { t } from '../../i18n/LanguageContext'
 
 // Floating "📷 مسح" button shown on every logged-in page (rendered by ProtectedLayout).
 // Bottom-RIGHT on purpose: bottom-left sits on top of the sidebar's logout button on desktop.
@@ -14,13 +15,13 @@ export default function ScanFab() {
     const path = routeFromScan(text)
     setOpen(false)
     if (path) { navigate(path); return }
-    setToast('هذا الكود ما هوش من نظامنا')
+    setToast(t('Ce code n\'appartient pas à notre système'))
     setTimeout(() => setToast(null), 3000)
   }
 
   return (
     <>
-      <button onClick={() => setOpen(true)} aria-label="مسح كود QR"
+      <button onClick={() => setOpen(true)} aria-label={t('Scanner un code QR')}
         className="no-print fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-[#e4211b] text-white text-2xl shadow-lg active:scale-95 transition">
         📷
       </button>

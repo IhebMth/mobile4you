@@ -1,15 +1,19 @@
-import { colorHex } from '../../lib/productColors'
+import { colorHex, colorLabel } from '../../lib/productColors'
 
-// <ColorDot label="أسود" />  -> ● أسود   (renders nothing when there is no color)
-// Only the component is exported from this file (Fast Refresh requirement);
-// the color list and colorHex() live in src/lib/productColors.js.
+// Small colour swatch + the colour name. Renders nothing when there is no colour.
+// <ColorDot label={item.color} className="mt-1" />
 export default function ColorDot({ label, className = '' }) {
-  const hex = colorHex(label)
-  if (!hex) return null
+  const name = String(label || '').trim()
+  if (!name) return null
+  const hex = colorHex(name)
   return (
     <span className={`inline-flex items-center gap-1.5 text-xs text-[#6b6b6b] ${className}`}>
-      <span className="w-3 h-3 rounded-full border border-black/15 shrink-0" style={{ background: hex }} aria-hidden="true" />
-      {label}
+      <span
+        className="w-3.5 h-3.5 rounded-full border border-black/15 shrink-0"
+        style={{ background: hex || 'repeating-linear-gradient(45deg,#e5e5e5,#e5e5e5 3px,#fff 3px,#fff 6px)' }}
+        aria-hidden="true"
+      />
+      {colorLabel(name)}
     </span>
   )
 }

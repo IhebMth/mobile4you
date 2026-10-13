@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
+import { t } from '../../i18n/LanguageContext'
 
 // One page for comptoir, technicien AND admin.
 // Comptoir/admin can attach a part purchase to any open order;
@@ -60,7 +61,7 @@ export default function LogRepairExpense() {
     setError(null)
 
     if (!orderId || !itemName.trim() || !price || Number(price) <= 0) {
-      setError('اختر الطلب، وعمر اسم القطعة والسعر بشكل صحيح')
+      setError(t('Choisissez la commande et remplissez correctement le nom de la pièce et le prix'))
       return
     }
 
@@ -77,7 +78,7 @@ export default function LogRepairExpense() {
     setSaving(false)
 
     if (insertError) {
-      setError('خطأ: ' + insertError.message)
+      setError(t('Erreur :') + ' ' + insertError.message)
       return
     }
 
@@ -98,18 +99,18 @@ export default function LogRepairExpense() {
     <div>
       <div className="flex justify-between items-end mb-6 pb-4 border-b border-[#e5e5e5]">
         <div>
-          <h1 className="text-xl font-extrabold text-[#1a1a1a] mb-1">مصاريف قطع الغيار</h1>
+          <h1 className="text-xl font-extrabold text-[#1a1a1a] mb-1">{t('Frais de pièces détachées')}</h1>
           <p className="text-sm text-[#6b6b6b]">
             {totalPending > 0
-              ? `${totalPending.toFixed(2)} د.ت بانتظار اعتماد المدير`
-              : 'كل مصاريفك معتمدة'}
+              ? t('{totalPending} DT en attente de validation par le gérant', { totalPending: totalPending.toFixed(2) })
+              : t('Toutes vos dépenses sont validées')}
           </p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
           className="bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90"
         >
-          {showForm ? 'إلغاء' : '+ تسجيل مصروف'}
+          {showForm ? t('Annuler') : t('+ Enregistrer une dépense')}
         </button>
       </div>
 
@@ -119,14 +120,14 @@ export default function LogRepairExpense() {
           className="bg-white border border-[#e5e5e5] rounded-xl p-6 mb-6 max-w-xl"
         >
           <div className="mb-4">
-            <label className="block text-sm font-semibold mb-1.5">مرتبط بأي طلب صيانة</label>
+            <label className="block text-sm font-semibold mb-1.5">{t('Liée à une commande de réparation')}</label>
             <select
               value={orderId}
               onChange={(e) => setOrderId(e.target.value)}
               className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm"
               required
             >
-              <option value="">اختر الطلب...</option>
+              <option value="">{t('Choisir la commande...')}</option>
               {orders.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.order_number} — {o.device_model}
@@ -136,11 +137,11 @@ export default function LogRepairExpense() {
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-semibold mb-1.5">اسم القطعة</label>
+            <label className="block text-sm font-semibold mb-1.5">{t('Nom de la pièce')}</label>
             <input
               value={itemName}
               onChange={(e) => setItemName(e.target.value)}
-              placeholder="مثال: شاشة iPhone 12، بطارية..."
+              placeholder={t('Exemple : écran iPhone 12, batterie...')}
               className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b]"
               required
             />
@@ -148,7 +149,7 @@ export default function LogRepairExpense() {
 
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-semibold mb-1.5">المورّد (اختياري)</label>
+              <label className="block text-sm font-semibold mb-1.5">{t('Fournisseur (facultatif)')}</label>
               <input
                 value={supplier}
                 onChange={(e) => setSupplier(e.target.value)}
@@ -156,7 +157,7 @@ export default function LogRepairExpense() {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-1.5">الكمية</label>
+              <label className="block text-sm font-semibold mb-1.5">{t('Quantité')}</label>
               <input
                 type="number"
                 value={quantity}
@@ -168,13 +169,13 @@ export default function LogRepairExpense() {
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-semibold mb-1.5">سعر الشراء (للوحدة)</label>
+            <label className="block text-sm font-semibold mb-1.5">{t('Prix d\'achat (à l\'unité)')}</label>
             <input
               type="number"
               step="0.001"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              placeholder="بالدينار"
+              placeholder={t('En dinars')}
               className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b]"
               required
             />
@@ -187,25 +188,25 @@ export default function LogRepairExpense() {
             disabled={saving}
             className="bg-[#e4211b] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90 disabled:opacity-60"
           >
-            {saving ? 'جاري الحفظ...' : 'تسجيل'}
+            {saving ? t('Enregistrement...') : t('Ajouter')}
           </button>
         </form>
       )}
 
       <div className="bg-white border border-[#e5e5e5] rounded-xl overflow-hidden">
         {loading ? (
-          <p className="p-6 text-sm text-[#6b6b6b]">جاري التحميل...</p>
+          <p className="p-6 text-sm text-[#6b6b6b]">{t('Chargement...')}</p>
         ) : expenses.length === 0 ? (
-          <p className="p-6 text-sm text-[#6b6b6b]">ما سجلتش أي مصروف بعد</p>
+          <p className="p-6 text-sm text-[#6b6b6b]">{t('Aucune dépense enregistrée pour le moment')}</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold">
-                <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الطلب</th>
-                <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">القطعة</th>
-                <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الكمية</th>
-                <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">السعر</th>
-                <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الحالة</th>
+                <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Commande')}</th>
+                <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Pièce')}</th>
+                <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Quantité')}</th>
+                <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Prix')}</th>
+                <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Statut')}</th>
               </tr>
             </thead>
             <tbody>
@@ -217,13 +218,13 @@ export default function LogRepairExpense() {
                   <td className="px-5 py-3.5 border-b border-[#ececE4] font-semibold">{e.item_name}</td>
                   <td className="px-5 py-3.5 border-b border-[#ececE4]">{e.quantity}</td>
                   <td className="px-5 py-3.5 border-b border-[#ececE4]">
-                    {(e.purchase_price * e.quantity).toFixed(2)} د.ت
+                    {(e.purchase_price * e.quantity).toFixed(2)}  {t('DT')}
                   </td>
                   <td className="px-5 py-3.5 border-b border-[#ececE4]">
                     {e.is_approved ? (
-                      <span className="text-[#1f8a4c] text-xs font-semibold">✔ معتمد</span>
+                      <span className="text-[#1f8a4c] text-xs font-semibold">{t('✔ Validée')}</span>
                     ) : (
-                      <span className="text-[#c9750a] text-xs font-semibold">بانتظار الاعتماد</span>
+                      <span className="text-[#c9750a] text-xs font-semibold">{t('En attente de validation')}</span>
                     )}
                   </td>
                 </tr>

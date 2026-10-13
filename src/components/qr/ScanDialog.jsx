@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import jsQR from 'jsqr'
+import { t } from '../../i18n/LanguageContext'
 
 // Opens the camera and reads QR codes in the page itself (no need to open the phone's Camera app).
 // onResult(text) is called once with the QR content. The browser only allows the camera on
@@ -20,7 +21,7 @@ export default function ScanDialog({ onResult, onClose }) {
 
     async function start() {
       if (!navigator.mediaDevices?.getUserMedia) {
-        setError('الكاميرا تخدم برك على رابط https (مش http عادي). استعمل رابط Vercel.')
+        setError(t('La caméra ne fonctionne que sur un lien https (pas http simple). Utilisez le lien Vercel.'))
         return
       }
       try {
@@ -52,8 +53,8 @@ export default function ScanDialog({ onResult, onClose }) {
         raf = requestAnimationFrame(tick)
       } catch (e) {
         setError(e.name === 'NotAllowedError'
-          ? 'لازم تسمح للتطبيق باستعمال الكاميرا (من إعدادات المتصفح).'
-          : 'ما نجمتش نحل الكاميرا: ' + e.message)
+          ? t('Vous devez autoriser l\'application à utiliser la caméra (dans les paramètres du navigateur).')
+          : t('Impossible d\'ouvrir la caméra :') + ' ' + e.message)
       }
     }
     start()
@@ -65,12 +66,12 @@ export default function ScanDialog({ onResult, onClose }) {
   }, [])
 
   return (
-    <div className="no-print fixed inset-0 z-70 bg-black/80 flex items-center justify-center p-4"
+    <div className="no-print fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-4"
          onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="bg-white w-full max-w-sm rounded-2xl overflow-hidden shadow-xl">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#e5e5e5]">
-          <h3 className="font-extrabold text-sm">📷 مسح كود QR</h3>
-          <button onClick={onClose} aria-label="إغلاق" className="w-8 h-8 rounded-full text-[#6b6b6b] hover:bg-[#f3f1ea]">✕</button>
+          <h3 className="font-extrabold text-sm">{t('📷 Scanner un code QR')}</h3>
+          <button onClick={onClose} aria-label={t('Fermer')} className="w-8 h-8 rounded-full text-[#6b6b6b] hover:bg-[#f3f1ea]">✕</button>
         </div>
         {error ? (
           <p className="p-6 text-sm text-[#b3170f] text-center">{error}</p>
@@ -83,7 +84,8 @@ export default function ScanDialog({ onResult, onClose }) {
           </div>
         )}
         <p className="text-xs text-[#6b6b6b] text-center px-4 py-3">
-          وجّه الكاميرا للكود: ملصق جهاز (صيانة) أو ملصق منتج (مخزون)
+          
+          {t('Dirigez la caméra vers le code : étiquette d\'appareil (réparation) ou étiquette de produit (stock)')}
         </p>
       </div>
     </div>

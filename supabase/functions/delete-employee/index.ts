@@ -3,249 +3,56 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-}
-
-function jsonResponse(
-  body: Record<string, unknown>,
-  status = 200
-) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  })
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
 serve(async (req) => {
-  // CORS
-  if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: corsHeaders,
-    })
-  }
-
-  // Only POST
-  if (req.method !== "POST") {
-    return jsonResponse(
-      { error: "Method not allowed" },
-      405
-    )
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders })
 
   try {
-    // --------------------------------------------------
-    // 1. Get authorization header
-    // --------------------------------------------------
-
-    const authHeader =
-      req.headers.get("Authorization")
-
-    if (!authHeader) {
-      return jsonResponse(
-        { error: "غير مصرح" },
-        401
-      )
-    }
-
-    // --------------------------------------------------
-    // 2. Client using current user's token
-    // --------------------------------------------------
-
+    const authHeader = req.headers.get("Authorization")!
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
-      {
-        global: {
-          headers: {
-            Authorization: authHeader,
-          },
-        },
-      }
+      { global: { headers: { Authorization: authHeader } } }
     )
 
-    // --------------------------------------------------
-    // 3. Verify current user
-    // --------------------------------------------------
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser()
-
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
     if (userError || !user) {
-      return jsonResponse(
-        { error: "غير مصرح" },
-        401
-      )
+      return new Response(JSON.stringify({ error: 'Non autorisé' }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } })
     }
 
-    // --------------------------------------------------
-    // 4. Get caller role
-    // --------------------------------------------------
+    const { data: callerProfile } = await supabaseClient.from("profiles").select("role").eq("id", user.id).single()
 
-    const {
-      data: callerProfile,
-      error: callerProfileError,
-    } = await supabaseClient
-      .from("profiles")
-      .select("id, role")
-      .eq("id", user.id)
-      .single()
-
-    if (
-      callerProfileError ||
-      !callerProfile ||
-      !["admin", "super_admin"].includes(
-        callerProfile.role
-      )
-    ) {
-      return jsonResponse(
-        {
-          error:
-            "فقط Admin أو Super Admin يقدر يحذف موظفين",
-        },
-        403
-      )
+    if (!callerProfile || !["admin", "super_admin"].includes(callerProfile.role)) {
+      return new Response(JSON.stringify({ error: 'Seul l\'administrateur peut supprimer des employés' }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } })
     }
-
-    // --------------------------------------------------
-    // 5. Read target user ID
-    // --------------------------------------------------
 
     const { user_id } = await req.json()
-
     if (!user_id) {
-      return jsonResponse(
-        {
-          error: "user_id مطلوب",
-        },
-        400
-      )
+      return new Response(JSON.stringify({ error: 'user_id requis' }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } })
     }
-
-    // --------------------------------------------------
-    // 6. Prevent self deletion
-    // --------------------------------------------------
 
     if (user_id === user.id) {
-      return jsonResponse(
-        {
-          error:
-            "ما تقدرش تحذف حسابك الخاص",
-        },
-        400
-      )
+      return new Response(JSON.stringify({ error: 'Vous ne pouvez pas supprimer votre propre compte' }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } })
     }
 
-    // --------------------------------------------------
-    // 7. Get Service Role Key
-    // --------------------------------------------------
+    const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
 
-    const serviceRoleKey =
-      Deno.env.get("SERVICE_ROLE_KEY")
+    const { data: targetProfile } = await supabaseAdmin.from("profiles").select("role").eq("id", user_id).single()
 
-    if (!serviceRoleKey) {
-      throw new Error(
-        "SERVICE_ROLE_KEY غير موجود"
-      )
+    if (targetProfile && ["admin", "super_admin"].includes(targetProfile.role) && callerProfile.role !== "super_admin") {
+      return new Response(JSON.stringify({ error: 'Seul le Super Admin peut supprimer un compte admin' }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } })
     }
 
-    // --------------------------------------------------
-    // 8. Admin Supabase client
-    // --------------------------------------------------
-
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      serviceRoleKey
-    )
-
-    // --------------------------------------------------
-    // 9. Get target profile
-    // --------------------------------------------------
-
-    const {
-      data: targetProfile,
-      error: targetProfileError,
-    } = await supabaseAdmin
-      .from("profiles")
-      .select("id, role")
-      .eq("id", user_id)
-      .single()
-
-    if (
-      targetProfileError ||
-      !targetProfile
-    ) {
-      return jsonResponse(
-        {
-          error: "الموظف غير موجود",
-        },
-        404
-      )
-    }
-
-    // --------------------------------------------------
-    // 10. Admin cannot delete Admin/Super Admin
-    // --------------------------------------------------
-
-    if (
-      ["admin", "super_admin"].includes(
-        targetProfile.role
-      ) &&
-      callerProfile.role !== "super_admin"
-    ) {
-      return jsonResponse(
-        {
-          error:
-            "فقط Super Admin يقدر يحذف Admin أو Super Admin",
-        },
-        403
-      )
-    }
-
-    // --------------------------------------------------
-    // 11. Delete Auth user
-    // --------------------------------------------------
-
-    const { error: deleteError } =
-      await supabaseAdmin.auth.admin.deleteUser(
-        user_id
-      )
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user_id)
 
     if (deleteError) {
-      return jsonResponse(
-        {
-          error: deleteError.message,
-        },
-        400
-      )
+      return new Response(JSON.stringify({ error: deleteError.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } })
     }
 
-    // --------------------------------------------------
-    // 12. Success
-    // --------------------------------------------------
-
-    return jsonResponse({
-      success: true,
-      message: "تم حذف الموظف بنجاح",
-      user_id,
-    })
+    return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } })
   } catch (err) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : "حدث خطأ غير معروف"
-
-    return jsonResponse(
-      {
-        error: message,
-      },
-      500
-    )
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } })
   }
 })

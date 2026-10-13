@@ -1,30 +1,20 @@
 import { phoneOf, CONDITION_LABEL } from '../../lib/phoneDetails'
+import { t } from '../../i18n/LanguageContext'
 
-// Phone details chips. compact (default): condition + battery.
-// full: also warranty days and the IMEI line — used where staff need every detail.
-// Never shows purchase price, supplier or where the phone was bought from.
+// One line of phone details (condition, battery, warranty, source). Renders nothing for accessories.
+// compact (default): condition + battery        full: + internal warranty + where it came from
+// <PhoneInfo item={row} full className="mt-1" />
 export default function PhoneInfo({ item, full = false, className = '' }) {
+  if (!item || item.category !== 'phone') return null
   const pd = phoneOf(item)
-  if (item?.category !== 'phone' || !pd) return null
-  const chip = 'text-[11px] font-semibold rounded-full px-2 py-0.5 whitespace-nowrap'
-  return (
-    <div className={className}>
-      <div className="flex flex-wrap gap-1.5">
-        {pd.condition && (
-          <span className={`${chip} ${pd.condition === 'new' ? 'bg-[#e8f6ee] text-[#1f8a4c]' : 'bg-[#f3f1ea] text-[#6b6b6b]'}`}>
-            {CONDITION_LABEL[pd.condition] || pd.condition}
-          </span>
-        )}
-        {pd.battery_health != null && (
-          <span className={`${chip} bg-[#f3f1ea] text-[#6b6b6b]`}>🔋 {pd.battery_health}%</span>
-        )}
-        {full && Number(pd.internal_warranty_days) > 0 && (
-          <span className={`${chip} bg-[#eaf1fe] text-[#2f6fed]`}>🛡️ ضمان {pd.internal_warranty_days} يوم</span>
-        )}
-      </div>
-      {full && pd.imei && (
-        <p className="text-xs text-[#6b6b6b] mt-1.5" dir="ltr">IMEI: <span className="font-semibold text-[#1a1a1a]">{pd.imei}</span></p>
-      )}
-    </div>
-  )
+  if (!pd) return null
+  const bits = []
+  if (pd.condition) bits.push(CONDITION_LABEL[pd.condition] || pd.condition)
+  if (pd.battery_health !== null && pd.battery_health !== undefined && pd.battery_health !== '') {
+    bits.push(`🔋 ${pd.battery_health}%`)
+  }
+  if (full && Number(pd.internal_warranty_days) > 0) bits.push(t('🛡️ Garantie {internal_warranty_days} jours', { internal_warranty_days: pd.internal_warranty_days }))
+  if (full && pd.source_type) bits.push(pd.source_type === 'client_trade_in' ? t('D\'un client (reprise)') : t('D\'un fournisseur'))
+  if (!bits.length) return null
+  return <p className={`text-[11px] text-[#6b6b6b] ${className}`}>{bits.join(' · ')}</p>
 }

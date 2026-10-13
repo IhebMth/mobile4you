@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
+import { useI18n } from '../i18n/LanguageContext'
+import LanguageSwitcher from '../components/ui/LanguageSwitcher'
 import logo from '../assets/logo.png'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -13,6 +15,7 @@ const LAST_EMAIL_KEY = 'm4u-last-email'
 
 export default function Login() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [searchParams] = useSearchParams()
   const [email, setEmail] = useState(() => {
     try { return localStorage.getItem(LAST_EMAIL_KEY) || '' } catch { return '' }
@@ -43,6 +46,7 @@ export default function Login() {
           session: !!data?.session,
           key: hasKey,
           app: window.matchMedia('(display-mode: standalone)').matches,
+          host: window.location.host,
           err: error?.message || null,
         })
       }
@@ -76,11 +80,11 @@ export default function Login() {
     setError(null)
 
     if (!EMAIL_REGEX.test(email.trim())) {
-      setError('صيغة البريد الإلكتروني غير صحيحة (مثال: name@example.com)')
+      setError(t('Format d\'e-mail incorrect (exemple : nom@exemple.com)'))
       return
     }
     if (password.length < 6) {
-      setError('كلمة السر لازم تكون 6 خانات على الأقل')
+      setError(t('Le mot de passe doit contenir au moins 6 caractères'))
       return
     }
 
@@ -94,15 +98,15 @@ export default function Login() {
       setLoading(false)
       const msg = authError.message || ''
       if (msg.includes('Invalid login credentials')) {
-        setError('البريد الإلكتروني أو كلمة السر غير صحيحة')
+        setError(t('E-mail ou mot de passe incorrect'))
       } else if (msg.includes('Email not confirmed')) {
-        setError('الحساب ما تأكدش بعد عبر البريد الإلكتروني')
+        setError(t('Le compte n\'est pas encore confirmé par e-mail'))
       } else if (msg.includes('Too many requests') || msg.includes('rate limit')) {
-        setError('محاولات كثيرة، انتظر شوية وعاود جرب')
+        setError(t('Trop de tentatives, attendez un peu et réessayez'))
       } else if (msg.includes('fetch') || msg.includes('network')) {
-        setError('مشكلة في الاتصال بالإنترنت، تأكد من الشبكة')
+        setError(t('Problème de connexion Internet, vérifiez votre réseau'))
       } else {
-        setError('خطأ في تسجيل الدخول: ' + msg)
+        setError(t('Erreur de connexion :') + ' ' + msg)
       }
       return
     }
@@ -116,7 +120,7 @@ export default function Login() {
     setLoading(false)
 
     if (profileError || !profile) {
-      setError('تم الدخول لكن ما لقيناش الحساب في profiles. تواصل مع الأدمن.')
+      setError(t('Connexion réussie mais votre compte est introuvable dans profiles. Contactez l\'administrateur.'))
       return
     }
 
@@ -124,28 +128,29 @@ export default function Login() {
 
     const to = destinationFor(profile.role)
     if (to) navigate(to, { replace: true })
-    else setError('دور غير معروف: ' + profile.role)
+    else setError(t('Rôle inconnu :') + ' ' + profile.role)
   }
 
   // while the saved login is being checked (or we are about to redirect), show a splash, not the form
   if (authLoading || (user && profile && destinationFor(profile.role))) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f7f7f7] text-sm text-[#6b6b6b]">
-        جاري الدخول...
+        {t('Connexion...')}
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#fbfaf6] to-[#f0efe9] flex items-center justify-center px-4 py-8">
+    <div className="relative min-h-screen bg-gradient-to-b from-[#fbfaf6] to-[#f0efe9] flex items-center justify-center px-4 py-8">
+      <div className="absolute top-4 right-4"><LanguageSwitcher /></div>
       <form onSubmit={handleLogin} className="bg-white border border-[#e8e6df] rounded-3xl p-6 sm:p-9 w-full max-w-[400px] shadow-[0_8px_30px_rgba(0,0,0,0.05)]">
         <div className="flex flex-col items-center mb-8">
           <img src={logo} alt="Mobile 4 You" className="w-16 h-16 rounded-2xl object-cover mb-3 ring-4 ring-[#f4f2ec]" />
           <h1 className="text-lg font-extrabold text-[#1a1a1a]">MOBILE 4 YOU</h1>
-          <p className="text-sm text-[#6b6b6b] mt-1">تسجيل الدخول</p>
+          <p className="text-sm text-[#6b6b6b] mt-1">{t('Connexion')}</p>
         </div>
 
-        <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">البريد الإلكتروني</label>
+        <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">{t('E-mail')}</label>
         <input
           type="email"
           name="email"
@@ -157,7 +162,7 @@ export default function Login() {
           className="w-full h-12 px-4 border border-[#e2e0d8] rounded-xl text-base mb-4 focus:outline-none focus:border-[#e4211b] focus:ring-4 focus:ring-[#e4211b]/10 bg-[#fdfdfb] transition"
         />
 
-        <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">كلمة السر</label>
+        <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">{t('Mot de passe')}</label>
         <div className="relative mb-2">
           <input
             type={showPassword ? 'text' : 'password'}
@@ -166,12 +171,12 @@ export default function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full h-12 px-4 pl-12 border border-[#e2e0d8] rounded-xl text-base focus:outline-none focus:border-[#e4211b] focus:ring-4 focus:ring-[#e4211b]/10 bg-[#fdfdfb] transition"
+            className="w-full h-12 pl-4 pr-12 border border-[#e2e0d8] rounded-xl text-base focus:outline-none focus:border-[#e4211b] focus:ring-4 focus:ring-[#e4211b]/10 bg-[#fdfdfb] transition"
           />
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
-            className="absolute left-1.5 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-[#6b6b6b] hover:text-[#1a1a1a]"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-[#6b6b6b] hover:text-[#1a1a1a]"
             tabIndex={-1}
           >
             {showPassword ? '🙈' : '👁️'}
@@ -179,18 +184,18 @@ export default function Login() {
         </div>
 
         <div className="mb-5">
-          <Link to="/forgot-password" className="text-[13px] font-semibold text-[#e4211b] hover:underline">نسيت كلمة السر؟</Link>
+          <Link to="/forgot-password" className="text-[13px] font-semibold text-[#e4211b] hover:underline">{t('Mot de passe oublié ?')}</Link>
         </div>
 
         {error && <p className="text-[#b3170f] text-sm mb-4">{error}</p>}
 
         <button type="submit" disabled={loading} className="w-full h-12 bg-[#e4211b] text-white font-bold rounded-xl text-[15px] hover:opacity-90 disabled:opacity-60 active:scale-[0.99] transition">
-          {loading ? 'جاري الدخول...' : 'دخول'}
+          {loading ? t('Connexion...') : t('Entrer')}
         </button>
 
         {diag && (
           <p className="mt-5 text-[10px] leading-4 text-[#9a9a9a] text-center break-all" dir="ltr">
-            test: opens={diag.opens} · last open={diag.ago === null ? 'first time' : `${diag.ago} min ago`} · saved login={diag.key ? 'yes' : 'NO'} · session={diag.session ? 'yes' : 'no'} · installed app={diag.app ? 'yes' : 'no'}{diag.err ? ` · error=${diag.err}` : ''}
+            test: opens={diag.opens} · last open={diag.ago === null ? 'first time' : `${diag.ago} min ago`} · saved login={diag.key ? 'yes' : 'NO'} · session={diag.session ? 'yes' : 'no'} · installed app={diag.app ? 'yes' : 'no'} · address={diag.host}{diag.err ? ` · error=${diag.err}` : ''}
           </p>
         )}
       </form>

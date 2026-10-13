@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { t } from '../../i18n/LanguageContext'
 
 // Drop into the order modal in ComptoirDashboard (comptoir + admin).
 // order = the selected order (needs id, final_price, price_confirmed, status)
@@ -27,7 +28,8 @@ export default function UnpaidDeliveryButton({ order, onDone }) {
   return open ? (
     <div className="mt-3 p-3 border border-[#e5e5e5] rounded-lg bg-[#fff8f0]">
       <label className="block text-sm font-semibold mb-1.5">
-        كم ما خلّصش الحريف؟ (من أصل {order.final_price} د.ت)
+        
+        {t('Combien le client n\'a-t-il pas payé ? (sur un total de {total} DT)', { total: order.final_price })}
       </label>
       <input type="number" step="0.001" value={unpaid} onChange={(e) => setUnpaid(e.target.value)}
         className="w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm mb-2" />
@@ -35,14 +37,14 @@ export default function UnpaidDeliveryButton({ order, onDone }) {
       <div className="flex gap-2">
         <button onClick={submit} disabled={saving}
           className="bg-[#c9750a] text-white text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-60">
-          {order.status === 'delivered' ? 'سجّل الدين' : 'سلّم وسجّل الدين'}
+          {order.status === 'delivered' ? t('Enregistrer la dette') : t('Livrer et enregistrer la dette')}
         </button>
-        <button onClick={() => setOpen(false)} className="text-xs px-3">إلغاء</button>
+        <button onClick={() => setOpen(false)} className="text-xs px-3">{t('Annuler')}</button>
       </div>
     </div>
   ) : (
     <button onClick={() => setOpen(true)} className="mt-3 text-[#c9750a] text-sm font-semibold hover:underline">
-      {order.status === 'delivered' ? '⚠ الحريف ما خلّصش كامل' : 'تسليم بدون دفع كامل'}
+      {order.status === 'delivered' ? t('⚠ Le client n\'a pas tout payé') : t('Livraison sans paiement complet')}
     </button>
   )
 }

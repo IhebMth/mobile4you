@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
+import { t } from '../../i18n/LanguageContext'
 
 // Shows a small warning banner for accessories running low on stock.
 // Phones are excluded on purpose: each phone is a single unique unit (IMEI),
@@ -28,18 +29,19 @@ export default function LowStockAlert() {
     <div className="bg-[#fff8f0] border border-[#f0d9b8] rounded-xl p-4 mb-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-bold text-[#8a4f06]">⚠ مخزون منخفض ({items.length})</p>
+          <p className="text-sm font-bold text-[#8a4f06]">{t('⚠ Stock faible (')}{items.length})</p>
           <ul className="text-xs text-[#8a4f06] mt-1.5 space-y-0.5">
             {items.slice(0, 5).map((a) => (
               <li key={a.id}>
-                {a.name} — باقي {a.stock_quantity} {a.stock_quantity === 0 && '(نفذ تمامًا)'}
+                {a.name} — {t('Reste')} {a.stock_quantity} {a.stock_quantity === 0 && t('(épuisé)')}
               </li>
             ))}
-            {items.length > 5 && <li>و {items.length - 5} منتجات أخرى...</li>}
+            {items.length > 5 && <li>{t('et {n} autres produits...', { n: items.length - 5 })}</li>}
           </ul>
         </div>
         <Link to="/admin/accessories" className="shrink-0 text-xs font-semibold text-[#8a4f06] underline whitespace-nowrap">
-          إدارة المخزون
+          
+          {t('Gestion du stock')}
         </Link>
       </div>
     </div>

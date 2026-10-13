@@ -4,18 +4,20 @@ import { useAuth } from '../../context/AuthContext'
 import Sidebar from './Sidebar'
 import logo from '../../assets/logo.png'
 import ScanFab from '../qr/ScanFab'
-import NotificationBell from '../notifications/NotificationBell'
+import HeaderTools from '../ui/HeaderTools'
+import { useI18n } from '../../i18n/LanguageContext'
 import DashboardNotifications from '../notifications/DashboardNotifications'
 
 export default function ProtectedRoute({ allowedRoles }) {
   const { user, profile, loading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
+  const { t } = useI18n()
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f7f7f7] text-[#6b6b6b]">
-        جاري التحقق...
+        {t('Vérification...')}
       </div>
     )
   }
@@ -38,11 +40,11 @@ export default function ProtectedRoute({ allowedRoles }) {
           <span className="text-[12px] font-extrabold tracking-wide">MOBILE 4 YOU</span>
         </div>
         <div className="flex items-center gap-1">
-        <NotificationBell onDark />
+        <HeaderTools onDark />
         <button
           onClick={() => setSidebarOpen(true)}
-          className="p-2 -mr-2"
-          aria-label="فتح القائمة"
+          className="p-2 -mr-2 ml-1"
+          aria-label={t('Ouvrir le menu')}
         >
           <span className="block w-6 h-0.5 bg-white mb-1.5"></span>
           <span className="block w-6 h-0.5 bg-white mb-1.5"></span>
@@ -55,9 +57,9 @@ export default function ProtectedRoute({ allowedRoles }) {
 
       {/* p-4 on phones, p-6 on tablets, p-10 + max width on desktop, same as before */}
       <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-10 lg:max-w-295">
-        {/* notification bell on desktop (the phone has it in the top bar above) */}
+        {/* language switch + notification bell on desktop (the phone has them in the top bar above) */}
         <div className="hidden lg:flex justify-end mb-4">
-          <NotificationBell />
+          <HeaderTools />
         </div>
         {/* latest unread notifications, only on the three dashboards */}
         {['/comptoir', '/technicien', '/admin'].includes(location.pathname) && <DashboardNotifications />}

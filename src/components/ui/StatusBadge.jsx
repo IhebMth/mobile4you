@@ -1,10 +1,11 @@
+import { t } from '../../i18n/LanguageContext'
 const STATUS_STYLES = {
-  received: { bg: 'bg-[#eeeeee]', text: 'text-[#5c6b6f]', dot: 'bg-[#8a8a8a]', label: 'استُلم' },
-  diagnosing: { bg: 'bg-[#fdecd8]', text: 'text-[#8a4f06]', dot: 'bg-[#c9750a]', label: 'تشخيص' },
-  in_repair: { bg: 'bg-[#eeeeee]', text: 'text-[#1a1a1a]', dot: 'bg-[#1a1a1a]', label: 'قيد الإصلاح' },
-  ready: { bg: 'bg-[#e3f0e8]', text: 'text-[#2b5940]', dot: 'bg-[#1f8a4c]', label: 'جاهز للاستلام' },
-  delivered: { bg: 'bg-[#e5eef6]', text: 'text-[#204a6b]', dot: 'bg-[#1f5fa8]', label: 'تم التسليم' },
-  cancelled: { bg: 'bg-[#fdeaea]', text: 'text-[#a13d3d]', dot: 'bg-[#a13d3d]', label: 'ملغى' },
+  received: { bg: 'bg-[#eeeeee]', text: 'text-[#5c6b6f]', dot: 'bg-[#8a8a8a]', label: t('Reçu') },
+  diagnosing: { bg: 'bg-[#fdecd8]', text: 'text-[#8a4f06]', dot: 'bg-[#c9750a]', label: t('Diagnostic') },
+  in_repair: { bg: 'bg-[#eeeeee]', text: 'text-[#1a1a1a]', dot: 'bg-[#1a1a1a]', label: t('En réparation') },
+  ready: { bg: 'bg-[#e3f0e8]', text: 'text-[#2b5940]', dot: 'bg-[#1f8a4c]', label: t('Prêt à récupérer') },
+  delivered: { bg: 'bg-[#e5eef6]', text: 'text-[#204a6b]', dot: 'bg-[#1f5fa8]', label: t('Livré') },
+  cancelled: { bg: 'bg-[#fdeaea]', text: 'text-[#a13d3d]', dot: 'bg-[#a13d3d]', label: t('Annulé') },
 }
 
 export default function StatusBadge({ status }) {

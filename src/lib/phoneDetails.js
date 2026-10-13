@@ -1,11 +1,11 @@
-// Supabase returns the embedded phone_details row as a single OBJECT when accessory_id is UNIQUE
-// (one-to-one), and as an ARRAY otherwise. Code that did a.phone_details?.[0] therefore read
-// "nothing" and the IMEI looked empty. This helper handles both shapes.
+import { t } from '../i18n/LanguageContext'
+// Supabase returns the phone_details relation either as an object or as a 1-item array,
+// depending on how it detects the relation. This always gives back ONE object (or null).
 export function phoneOf(item) {
-  const pd = item?.phone_details
+  const pd = item && item.phone_details
   if (!pd) return null
   return Array.isArray(pd) ? pd[0] || null : pd
 }
 
-export const CONDITION_LABEL = { new: 'جديد', used: 'مستعمل' }
-export const SOURCE_LABEL = { supplier: 'مورّد', client_trade_in: 'شراء من حريف' }
+export const CONDITION_LABEL = { new: t('Neuf'), used: t('Occasion') }
+export const SOURCE_LABEL = { supplier: t('Morred'), client_trade_in: t('شراء من حريف') }

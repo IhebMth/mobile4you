@@ -7,21 +7,22 @@ import UnpaidDeliveryButton from '../shared/UnpaidDeliveryButton'
 import PrintOrderDialog from '../../components/qr/PrintOrderDialog'
 import { PaymentBadge, PickupBadge, PaymentSummary } from '../shared/OrderBadges'
 import FideleDiscount from '../shared/FideleDiscount'
+import { t, getLocale } from '../../i18n/LanguageContext'
 
 const STATUS_OPTIONS = [
-  { value: 'received', label: 'استُلم' },
-  { value: 'diagnosing', label: 'تشخيص' },
-  { value: 'in_repair', label: 'قيد الإصلاح' },
-  { value: 'ready', label: 'جاهز للاستلام' },
-  { value: 'delivered', label: 'تم التسليم' },
-  { value: 'cancelled', label: 'ملغى' },
+  { value: 'received', label: t('Reçu') },
+  { value: 'diagnosing', label: t('Diagnostic') },
+  { value: 'in_repair', label: t('En réparation') },
+  { value: 'ready', label: t('Prêt à récupérer') },
+  { value: 'delivered', label: t('Livré') },
+  { value: 'cancelled', label: t('Annulé') },
 ]
 
 const SORT_OPTIONS = [
-  { value: 'date_desc', label: 'الأحدث أولًا' },
-  { value: 'date_asc', label: 'الأقدم أولًا' },
-  { value: 'price_desc', label: 'السعر: من الأعلى' },
-  { value: 'price_asc', label: 'السعر: من الأدنى' },
+  { value: 'date_desc', label: t('Plus récents d\'abord') },
+  { value: 'date_asc', label: t('Plus anciens d\'abord') },
+  { value: 'price_desc', label: t('Prix : du plus élevé') },
+  { value: 'price_asc', label: t('Prix : du plus bas') },
 ]
 
 export default function ComptoirDashboard() {
@@ -65,10 +66,17 @@ export default function ComptoirDashboard() {
   }
 
   useEffect(() => {
-    loadOrders()
-    loadTechnicians()
+    const fetchDashboardData = async () => {
+      await loadOrders()
+      await loadTechnicians()
+    }
+
+    void fetchDashboardData()
+
     // refresh every 30s so "the client will come" (from the QR page) shows up without reloading
-    const t = setInterval(loadOrders, 30000)
+    const t = setInterval(() => {
+      void loadOrders()
+    }, 30000)
     return () => clearInterval(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -122,7 +130,7 @@ export default function ComptoirDashboard() {
 
   async function handleSaveEdits() {
     if (!form.clientName.trim() || !form.clientPhone.trim() || !form.deviceModel.trim() || !form.issueDescription.trim() || !form.technicianId) {
-      setModalError('عمر كل الحقول الإجبارية')
+      setModalError(t('Remplissez tous les champs obligatoires'))
       return
     }
     setSaving(true)
@@ -136,7 +144,7 @@ export default function ComptoirDashboard() {
 
     if (clientError) {
       setSaving(false)
-      setModalError('خطأ في تحديث الحريف: ' + clientError.message)
+      setModalError(t('Erreur de mise à jour du client :') + ' ' + clientError.message)
       return
     }
 
@@ -155,7 +163,7 @@ export default function ComptoirDashboard() {
     setSaving(false)
 
     if (orderError) {
-      setModalError('خطأ: ' + orderError.message)
+      setModalError(t('Erreur :') + ' ' + orderError.message)
       return
     }
 
@@ -189,7 +197,7 @@ export default function ComptoirDashboard() {
     setConfirming(false)
 
     if (error) {
-      setModalError('خطأ في تأكيد السعر: ' + error.message)
+      setModalError(t('Erreur de confirmation du prix :') + ' ' + error.message)
       return
     }
 
@@ -206,11 +214,11 @@ export default function ComptoirDashboard() {
     setModalError(null)
 
     if (newStatus === 'delivered' && (!selectedOrder.final_price || !selectedOrder.price_confirmed)) {
-      setModalError('ما نجمش نسلم: لازم التقني يحدد السعر النهائي وتأكده (تأكيد السعر) قبل التسليم')
+      setModalError(t('Livraison impossible : le technicien doit fixer le prix final et le confirmer (confirmation du prix) avant la livraison'))
       return
     }
-    if (newStatus === 'delivered' && !window.confirm('تأكيد تسليم الجهاز للحريف؟ (ما تنجمش ترجع فيها)')) return
-    if (newStatus === 'cancelled' && !window.confirm('تأكيد إلغاء الطلب؟')) return
+    if (newStatus === 'delivered' && !window.confirm(t('Confirmer la remise de l\'appareil au client ? (irréversible)'))) return
+    if (newStatus === 'cancelled' && !window.confirm(t('Confirmer l\'annulation de la commande ?'))) return
 
     setChangingStatus(true)
     const updates = { status: newStatus }
@@ -223,7 +231,7 @@ export default function ComptoirDashboard() {
     setChangingStatus(false)
 
     if (error) {
-      setModalError('خطأ في تغيير الحالة: ' + error.message)
+      setModalError(t('Erreur de changement de statut :') + ' ' + error.message)
       return
     }
     setOrders((prev) => prev.map((o) => (o.id === selectedOrder.id ? { ...o, status: newStatus } : o)))
@@ -248,12 +256,13 @@ export default function ComptoirDashboard() {
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end mb-6 pb-4 border-b border-[#e5e5e5]">
         <div>
-          <h1 className="text-xl font-extrabold text-[#1a1a1a] mb-1">لوحة الاستقبال</h1>
-          <p className="text-sm text-[#6b6b6b]">كل عمليات الصيانة الحالية والسابقة</p>
+          <h1 className="text-xl font-extrabold text-[#1a1a1a] mb-1">{t('Tableau de réception')}</h1>
+          <p className="text-sm text-[#6b6b6b]">{t('Toutes les réparations en cours et passées')}</p>
         </div>
         <Link to="/comptoir/new-order">
           <button className="w-full sm:w-auto bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90">
-            + استقبال جهاز جديد
+            
+            {t('+ Réceptionner un nouvel appareil')}
           </button>
         </Link>
       </div>
@@ -263,7 +272,7 @@ export default function ComptoirDashboard() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="فتّش برقم الطلب، اسم الحريف، الهاتف، أو الجهاز"
+          placeholder={t('Rechercher par n° de commande, nom du client, téléphone ou appareil')}
           className={inp + ' flex-1'}
         />
         <select
@@ -279,12 +288,12 @@ export default function ComptoirDashboard() {
 
       {loading ? (
         <div className="bg-white border border-[#e5e5e5] rounded-xl">
-          <p className="p-6 text-sm text-[#6b6b6b]">جاري التحميل...</p>
+          <p className="p-6 text-sm text-[#6b6b6b]">{t('Chargement...')}</p>
         </div>
       ) : visibleOrders.length === 0 ? (
         <div className="bg-white border border-[#e5e5e5] rounded-xl">
           <p className="p-6 text-sm text-[#6b6b6b]">
-            {orders.length === 0 ? 'ما فماش طلبات بعد' : 'ما فماش نتائج لهذا البحث'}
+            {orders.length === 0 ? t('Aucune commande pour le moment') : t('Aucun résultat pour cette recherche')}
           </p>
         </div>
       ) : (
@@ -295,7 +304,7 @@ export default function ComptoirDashboard() {
               <button
                 key={o.id}
                 onClick={() => openModal(o)}
-                className="text-right bg-white border border-[#e5e5e5] rounded-xl p-4 hover:bg-[#fbfaf6]"
+                className="text-left bg-white border border-[#e5e5e5] rounded-xl p-4 hover:bg-[#fbfaf6]"
               >
                 <div className="flex justify-between items-start gap-3 mb-2">
                   <span className="font-bold text-[#b3170f] text-sm" dir="ltr">
@@ -313,10 +322,10 @@ export default function ComptoirDashboard() {
                   <span className="text-xs text-[#6b6b6b]">{o.device_model}</span>
                   {o.final_price ? (
                     <span className={`text-xs font-semibold ${o.price_confirmed ? 'text-green-700' : 'text-[#b3170f]'}`}>
-                      {o.final_price} د.ت {!o.price_confirmed && '(غير مؤكد)'}
+                      {o.final_price}  {t('DT')} {!o.price_confirmed && t('(non confirmé)')}
                     </span>
                   ) : (
-                    <span className="text-xs text-[#6b6b6b]">لا يوجد سعر بعد</span>
+                    <span className="text-xs text-[#6b6b6b]">{t('Pas encore de prix')}</span>
                   )}
                 </div>
               </button>
@@ -328,12 +337,12 @@ export default function ComptoirDashboard() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold">
-                  <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">رقم الطلب</th>
-                  <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الحريف</th>
-                  <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الجهاز</th>
-                  <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الحالة</th>
-                  <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">السعر</th>
-                  <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">التاريخ</th>
+                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('N° de commande')}</th>
+                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Client')}</th>
+                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Appareil')}</th>
+                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Statut')}</th>
+                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Prix')}</th>
+                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Date')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -357,14 +366,14 @@ export default function ComptoirDashboard() {
                     <td className="px-5 py-3.5 border-b border-[#ececE4]">
                       {o.final_price ? (
                         <span className={o.price_confirmed ? 'text-green-700' : 'text-[#b3170f] font-semibold'}>
-                          {o.final_price} د.ت {!o.price_confirmed && '(غير مؤكد)'}
+                          {o.final_price}  {t('DT')} {!o.price_confirmed && t('(non confirmé)')}
                         </span>
                       ) : (
-                        <span className="text-xs text-[#6b6b6b]">لا يوجد بعد</span>
+                        <span className="text-xs text-[#6b6b6b]">{t('Pas encore')}</span>
                       )}
                     </td>
                     <td className="px-5 py-3.5 border-b border-[#ececE4] text-xs text-[#6b6b6b]">
-                      {new Date(o.created_at).toLocaleDateString('fr-TN')}
+                      {new Date(o.created_at).toLocaleDateString(getLocale())}
                     </td>
                   </tr>
                 ))}
@@ -388,9 +397,9 @@ export default function ComptoirDashboard() {
             </div>
 
             <div className="mb-4 bg-[#faf9f5] rounded-lg p-3">
-              <label className="block text-xs font-bold text-[#e4211b] mb-1.5">تغيير حالة الطلب</label>
+              <label className="block text-xs font-bold text-[#e4211b] mb-1.5">{t('Changer le statut de la commande')}</label>
               {selectedOrder.status === 'delivered' || selectedOrder.status === 'cancelled' ? (
-                <p className="text-xs text-[#6b6b6b]">الطلب مقفول ({selectedOrder.status === 'delivered' ? 'تم التسليم' : 'ملغى'}) — ما تنجمش تبدّل الحالة.</p>
+                <p className="text-xs text-[#6b6b6b]">{t('Commande verrouillée')} ({selectedOrder.status === 'delivered' ? t('Livré') : t('Annulé')}) — {t('Vous ne pouvez pas changer le statut.')}</p>
               ) : (
                 <select
                   value={selectedOrder.status}
@@ -405,13 +414,13 @@ export default function ComptoirDashboard() {
               )}
             </div>
 
-            <h4 className="text-xs font-bold text-[#e4211b] mb-3">معلومات الحريف</h4>
+            <h4 className="text-xs font-bold text-[#e4211b] mb-3">{t('Informations du client')}</h4>
             {selectedOrder.client_acknowledged && selectedOrder.status === 'ready' && (
               <div className="mb-3"><PickupBadge order={selectedOrder} /></div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               <div>
-                <label className="block text-xs text-[#6b6b6b] mb-1">اسم الحريف</label>
+                <label className="block text-xs text-[#6b6b6b] mb-1">{t('Nom du client')}</label>
                 <input
                   value={form.clientName}
                   onChange={(e) => setForm({ ...form, clientName: e.target.value })}
@@ -419,7 +428,7 @@ export default function ComptoirDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-[#6b6b6b] mb-1">رقم الهاتف</label>
+                <label className="block text-xs text-[#6b6b6b] mb-1">{t('N° de téléphone')}</label>
                 <input
                   value={form.clientPhone}
                   onChange={(e) => setForm({ ...form, clientPhone: e.target.value })}
@@ -429,9 +438,9 @@ export default function ComptoirDashboard() {
               </div>
             </div>
 
-            <h4 className="text-xs font-bold text-[#e4211b] mb-3">معلومات الجهاز</h4>
+            <h4 className="text-xs font-bold text-[#e4211b] mb-3">{t('Informations de l\'appareil')}</h4>
             <div className="mb-3">
-              <label className="block text-xs text-[#6b6b6b] mb-1">موديل الجهاز</label>
+              <label className="block text-xs text-[#6b6b6b] mb-1">{t('Modèle de l\'appareil')}</label>
               <input
                 value={form.deviceModel}
                 onChange={(e) => setForm({ ...form, deviceModel: e.target.value })}
@@ -439,7 +448,7 @@ export default function ComptoirDashboard() {
               />
             </div>
             <div className="mb-3">
-              <label className="block text-xs text-[#6b6b6b] mb-1">وصف العطل</label>
+              <label className="block text-xs text-[#6b6b6b] mb-1">{t('Description de la panne')}</label>
               <textarea
                 value={form.issueDescription}
                 onChange={(e) => setForm({ ...form, issueDescription: e.target.value })}
@@ -448,7 +457,7 @@ export default function ComptoirDashboard() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
               <div>
-                <label className="block text-xs text-[#6b6b6b] mb-1">من (د.ت)</label>
+                <label className="block text-xs text-[#6b6b6b] mb-1">{t('De (DT)')}</label>
                 <input
                   type="number"
                   value={form.priceMin}
@@ -457,7 +466,7 @@ export default function ComptoirDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-[#6b6b6b] mb-1">إلى (د.ت)</label>
+                <label className="block text-xs text-[#6b6b6b] mb-1">{t('À (DT)')}</label>
                 <input
                   type="number"
                   value={form.priceMax}
@@ -467,13 +476,13 @@ export default function ComptoirDashboard() {
               </div>
             </div>
             <div className="mb-4">
-              <label className="block text-xs text-[#6b6b6b] mb-1">التقني المسنّد</label>
+              <label className="block text-xs text-[#6b6b6b] mb-1">{t('Technicien assigné')}</label>
               <select
                 value={form.technicianId}
                 onChange={(e) => setForm({ ...form, technicianId: e.target.value })}
                 className="w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm"
               >
-                <option value="">-- اختار تقني --</option>
+                <option value="">{t('-- Choisir un technicien --')}</option>
                 {technicians.map((t) => (
                   <option key={t.id} value={t.id}>{t.full_name}</option>
                 ))}
@@ -487,20 +496,20 @@ export default function ComptoirDashboard() {
               disabled={saving}
               className="w-full bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90 disabled:opacity-60 mb-4"
             >
-              {saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+              {saving ? t('Enregistrement...') : t('Enregistrer les modifications')}
             </button>
 
             {/* fidele client: apply the discount? (comptoir or technicien can answer) */}
             <FideleDiscount order={selectedOrder} onChanged={handleDiscountChanged} />
 
             <div className="pt-4 border-t border-[#e5e5e5]">
-              <h4 className="text-xs font-bold text-[#e4211b] mb-2">السعر النهائي (من التقني)</h4>
+              <h4 className="text-xs font-bold text-[#e4211b] mb-2">{t('Prix final (fixé par le technicien)')}</h4>
               {selectedOrder.final_price ? (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#faf9f5] rounded-lg p-3">
                   <div>
-                    <span className="font-bold text-[#1a1a1a]">{selectedOrder.final_price} د.ت</span>
+                    <span className="font-bold text-[#1a1a1a]">{selectedOrder.final_price}  {t('DT')}</span>
                     <span className={`text-xs mr-2 ${selectedOrder.price_confirmed ? 'text-green-700' : 'text-[#b3170f]'}`}>
-                      {selectedOrder.price_confirmed ? '✔ مؤكد' : '● غير مؤكد بعد'}
+                      {selectedOrder.price_confirmed ? t('✔ Confirmé') : t('● Pas encore confirmé')}
                     </span>
                   </div>
                   {!selectedOrder.price_confirmed && (
@@ -509,12 +518,12 @@ export default function ComptoirDashboard() {
                       disabled={confirming}
                       className="w-full sm:w-auto bg-green-700 text-white text-sm px-4 py-2 rounded-lg hover:opacity-90 disabled:opacity-60"
                     >
-                      {confirming ? '...' : 'تأكيد السعر'}
+                      {confirming ? '...' : t('Confirmation du prix')}
                     </button>
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-[#6b6b6b]">التقني ما حددش السعر النهائي بعد.</p>
+                <p className="text-xs text-[#6b6b6b]">{t('Le technicien n\'a pas encore fixé le prix final.')}</p>
               )}
 
               {/* total / paid / remaining */}
@@ -529,7 +538,8 @@ export default function ComptoirDashboard() {
                 })}
                 className="w-full border border-[#e5e5e5] text-[#1a1a1a] text-sm font-semibold px-4 py-2.5 rounded-lg hover:bg-[#f7f7f7] mt-3"
               >
-                🖨 طباعة الوصل / الملصق (QR)
+                
+                {t('🖨 Imprimer le reçu / l\'étiquette (QR)')}
               </button>
 
               {/* Customer leaves without paying everything (only shows after the price is confirmed) */}
@@ -543,7 +553,8 @@ export default function ComptoirDashboard() {
               onClick={closeModal}
               className="w-full border border-[#e5e5e5] text-[#1a1a1a] text-sm px-4 py-2.5 rounded-lg hover:bg-[#f7f7f7] mt-4"
             >
-              إغلاق
+              
+              {t('Fermer')}
             </button>
           </div>
         </div>

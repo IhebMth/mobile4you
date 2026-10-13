@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { t } from '../../i18n/LanguageContext'
 
 const PERIODS = [
-  { value: 'all', label: 'كل الوقت' },
-  { value: 'month', label: 'هذا الشهر' },
-  { value: 'today', label: 'اليوم' },
+  { value: 'all', label: t('Tout le temps') },
+  { value: 'month', label: t('Ce mois-ci') },
+  { value: 'today', label: t('Aujourd\'hui') },
 ]
 
 const SORT_OPTIONS = [
-  { value: 'qty_desc', label: 'الأكثر مبيعًا' },
-  { value: 'qty_asc', label: 'الأقل مبيعًا' },
-  { value: 'revenue_desc', label: 'الإيرادات: من الأعلى' },
-  { value: 'revenue_asc', label: 'الإيرادات: من الأدنى' },
-  { value: 'price_desc', label: 'السعر: من الأعلى' },
-  { value: 'price_asc', label: 'السعر: من الأدنى' },
+  { value: 'qty_desc', label: t('Les plus vendus') },
+  { value: 'qty_asc', label: t('Les moins vendus') },
+  { value: 'revenue_desc', label: t('Revenus : du plus élevé') },
+  { value: 'revenue_asc', label: t('Revenus : du plus bas') },
+  { value: 'price_desc', label: t('Prix : du plus élevé') },
+  { value: 'price_asc', label: t('Prix : du plus bas') },
 ]
 
 // Top-selling products — aggregates accessory_sales by product, client-side.
@@ -95,8 +96,8 @@ export default function Reports() {
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end mb-6 pb-4 border-b border-[#e5e5e5]">
         <div>
-          <h1 className="text-xl font-extrabold text-[#1a1a1a] mb-1">الأكثر مبيعًا</h1>
-          <p className="text-sm text-[#6b6b6b]">ترتيب المنتجات (إكسسوارات وهواتف) حسب الكمية أو الإيرادات</p>
+          <h1 className="text-xl font-extrabold text-[#1a1a1a] mb-1">{t('Les plus vendus')}</h1>
+          <p className="text-sm text-[#6b6b6b]">{t('Classement des produits (accessoires et téléphones) par quantité ou revenus')}</p>
         </div>
         <div className="flex gap-2 overflow-x-auto -mx-1 px-1 sm:mx-0 sm:px-0">
           {PERIODS.map((p) => (
@@ -112,24 +113,24 @@ export default function Reports() {
 
       <div className="grid grid-cols-2 gap-3 mb-5">
         <div className="bg-white border border-[#e5e5e5] rounded-xl p-4">
-          <p className="text-xs text-[#6b6b6b] mb-1">القطع المباعة</p>
+          <p className="text-xs text-[#6b6b6b] mb-1">{t('Articles vendus')}</p>
           <p className="text-xl font-extrabold text-[#1a1a1a]">{totalQty}</p>
         </div>
         <div className="bg-white border border-[#e5e5e5] rounded-xl p-4">
-          <p className="text-xs text-[#6b6b6b] mb-1">إجمالي الإيرادات</p>
-          <p className="text-xl font-extrabold text-[#1f8a4c]">{totalRevenue.toFixed(2)} د.ت</p>
+          <p className="text-xs text-[#6b6b6b] mb-1">{t('Revenus totaux')}</p>
+          <p className="text-xl font-extrabold text-[#1f8a4c]">{totalRevenue.toFixed(2)}  {t('DT')}</p>
         </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 mb-3">
         <input value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="فتّش عن منتج" className={inp + ' flex-1'} />
+          placeholder={t('Rechercher un produit')} className={inp + ' flex-1'} />
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className={inp + ' bg-white sm:w-56'}>
           {SORT_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
       </div>
       <div className="flex gap-2 mb-5">
-        {[['all', 'الكل'], ['accessory', 'إكسسوارات'], ['phone', 'هواتف']].map(([v, l]) => (
+        {[['all', t('Tout')], ['accessory', t('Accessoires')], ['phone', t('Téléphones')]].map(([v, l]) => (
           <button key={v} onClick={() => setCategory(v)}
             className={`text-sm px-4 py-2 rounded-lg border ${category === v ? 'bg-[#e4211b] text-white border-[#e4211b]' : 'border-[#e5e5e5] text-[#6b6b6b]'}`}>
             {l}
@@ -138,11 +139,11 @@ export default function Reports() {
       </div>
 
       {loading ? (
-        <div className="bg-white border border-[#e5e5e5] rounded-xl"><p className="p-6 text-sm text-[#6b6b6b]">جاري التحميل...</p></div>
+        <div className="bg-white border border-[#e5e5e5] rounded-xl"><p className="p-6 text-sm text-[#6b6b6b]">{t('Chargement...')}</p></div>
       ) : visible.length === 0 ? (
         <div className="bg-white border border-[#e5e5e5] rounded-xl">
           <p className="p-6 text-sm text-[#6b6b6b]">
-            {products.length === 0 ? 'ما فماش مبيعات في هذي الفترة' : 'ما فماش نتائج لهذا البحث'}
+            {products.length === 0 ? t('Aucune vente sur cette période') : t('Aucun résultat pour cette recherche')}
           </p>
         </div>
       ) : (
@@ -160,10 +161,10 @@ export default function Reports() {
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-[#1a1a1a] text-sm">{p.name}{p.is_deleted && ' (محذوف)'}</p>
+                  <p className="font-semibold text-[#1a1a1a] text-sm">{p.name}{p.is_deleted && ' ' + t('(supprimé)')}</p>
                   <div className="flex justify-between items-center mt-1">
-                    <span className="text-xs text-[#6b6b6b]">بيعت {p.qty} مرة</span>
-                    <span className="font-bold text-[#1f8a4c] text-sm">{p.revenue.toFixed(2)} د.ت</span>
+                    <span className="text-xs text-[#6b6b6b]">{t('Vendus')} {p.qty}  {t('fois')}</span>
+                    <span className="font-bold text-[#1f8a4c] text-sm">{p.revenue.toFixed(2)}  {t('DT')}</span>
                   </div>
                 </div>
               </div>
@@ -175,12 +176,12 @@ export default function Reports() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold">
-                  <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">#</th>
-                  <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">المنتج</th>
-                  <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">النوع</th>
-                  <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">سعر البيع</th>
-                  <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الكمية المباعة</th>
-                  <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الإيرادات</th>
+                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">#</th>
+                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Produit')}</th>
+                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Type')}</th>
+                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Prix de vente')}</th>
+                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Quantité vendue')}</th>
+                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Revenus')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -196,15 +197,15 @@ export default function Reports() {
                             {p.category === 'phone' ? '📱' : '🛍️'}
                           </div>
                         )}
-                        <span className="font-semibold">{p.name}{p.is_deleted && <span className="text-[#6b6b6b] font-normal"> (محذوف)</span>}</span>
+                        <span className="font-semibold">{p.name}{p.is_deleted && <span className="text-[#6b6b6b] font-normal">  {t('(supprimé)')}</span>}</span>
                       </div>
                     </td>
                     <td className="px-5 py-3.5 border-b border-[#ececE4] text-xs text-[#6b6b6b]">
-                      {p.category === 'phone' ? 'هاتف' : 'إكسسوار'}
+                      {p.category === 'phone' ? t('Téléphone') : t('Accessoire')}
                     </td>
-                    <td className="px-5 py-3.5 border-b border-[#ececE4]">{Number(p.sale_price).toFixed(2)} د.ت</td>
+                    <td className="px-5 py-3.5 border-b border-[#ececE4]">{Number(p.sale_price).toFixed(2)}  {t('DT')}</td>
                     <td className="px-5 py-3.5 border-b border-[#ececE4] font-semibold">{p.qty}</td>
-                    <td className="px-5 py-3.5 border-b border-[#ececE4] font-bold text-[#1f8a4c]">{p.revenue.toFixed(2)} د.ت</td>
+                    <td className="px-5 py-3.5 border-b border-[#ececE4] font-bold text-[#1f8a4c]">{p.revenue.toFixed(2)}  {t('DT')}</td>
                   </tr>
                 ))}
               </tbody>

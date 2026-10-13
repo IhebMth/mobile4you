@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNotifications } from '../../context/NotificationContext'
 import { pushState, enablePush } from '../../lib/push'
+import { t } from '../../i18n/LanguageContext'
 
 // type -> emoji
 const ICON = {
@@ -27,20 +28,20 @@ const GROUP = {
 
 function ago(iso) {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
-  if (m < 1) return 'الآن'
-  if (m < 60) return `منذ ${m} د`
+  if (m < 1) return t('À l\'instant')
+  if (m < 60) return t('il y a {m} min', { m })
   const h = Math.floor(m / 60)
-  if (h < 24) return `منذ ${h} س`
-  return `منذ ${Math.floor(h / 24)} ي`
+  if (h < 24) return t('il y a {h} h', { h })
+  return t('il y a {h} j', { h: Math.floor(h / 24) })
 }
 
 function dayLabel(iso) {
   const d = new Date(iso)
   const today = new Date()
   const yest = new Date(); yest.setDate(today.getDate() - 1)
-  if (d.toDateString() === today.toDateString()) return 'اليوم'
-  if (d.toDateString() === yest.toDateString()) return 'أمس'
-  return 'أقدم'
+  if (d.toDateString() === today.toDateString()) return t('Aujourd\'hui')
+  if (d.toDateString() === yest.toDateString()) return t('Hier')
+  return t('Plus ancien')
 }
 
 const RING_CSS = `
@@ -99,9 +100,9 @@ export default function NotificationBell({ onDark = false }) {
       setPs(await enablePush())
     } catch (e) {
       const brave = /push service|registration failed/i.test(e.message || '')
-        ? '\n\nإذا كنت على Brave بالهاتف: قد لا يدعم هذه الميزة — جرّب Chrome.'
+        ? '\n\n' + t('Si vous êtes sur Brave sur téléphone : cette fonction peut ne pas être prise en charge — essayez Chrome.')
         : ''
-      alert('تعذّر تفعيل الإشعارات: ' + e.message + brave)
+      alert(t('Impossible d\'activer les notifications :') + ' ' + e.message + brave)
     }
     setBusy(false)
   }
@@ -121,7 +122,7 @@ export default function NotificationBell({ onDark = false }) {
       <button
         ref={btn}
         onClick={() => setOpen((v) => !v)}
-        aria-label="الإشعارات"
+        aria-label={t('Notifications')}
         aria-expanded={open}
         className={`relative w-10 h-10 rounded-full flex items-center justify-center transition active:scale-95 ${
           onDark
@@ -140,36 +141,37 @@ export default function NotificationBell({ onDark = false }) {
       </button>
 
       {open && pos && createPortal(
-        <div className="fixed inset-0 z-[70]" dir="rtl">
+        <div className="fixed inset-0 z-[70]" dir="ltr">
           {/* dim on phones, invisible click-catcher on desktop */}
           <div className="absolute inset-0 bg-black/35 lg:bg-transparent" onClick={() => setOpen(false)} />
 
           <div
             role="dialog"
-            aria-label="الإشعارات"
+            aria-label={t('Notifications')}
             style={pos}
             className="absolute flex flex-col bg-white rounded-2xl border border-[#ece9e0] shadow-[0_24px_70px_rgba(0,0,0,0.28)] overflow-hidden max-h-[min(78vh,640px)]"
           >
             {/* header */}
             <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3">
               <div className="flex items-center gap-2">
-                <h2 className="text-[17px] font-extrabold text-[#1a1a1a]">الإشعارات</h2>
-                {unread > 0 && <span className="text-[11px] font-bold bg-[#e4211b] text-white rounded-full px-2 py-0.5">{unread} جديد</span>}
+                <h2 className="text-[17px] font-extrabold text-[#1a1a1a]">{t('Notifications')}</h2>
+                {unread > 0 && <span className="text-[11px] font-bold bg-[#e4211b] text-white rounded-full px-2 py-0.5">{unread}  {t('Neuf')}</span>}
               </div>
               <div className="flex items-center gap-1">
                 {unread > 0 && (
                   <button onClick={markAll} className="text-[12px] font-bold text-[#b3170f] px-2.5 py-1.5 rounded-lg hover:bg-[#fdeeee]">
-                    ✓ قراءة الكل
+                    
+                    {t('✓ Tout marquer comme lu')}
                   </button>
                 )}
-                <button onClick={() => setOpen(false)} aria-label="إغلاق" className="w-8 h-8 rounded-full text-[#6b6b6b] text-xl leading-none hover:bg-[#f1f0ec]">×</button>
+                <button onClick={() => setOpen(false)} aria-label={t('Fermer')} className="w-8 h-8 rounded-full text-[#6b6b6b] text-xl leading-none hover:bg-[#f1f0ec]">×</button>
               </div>
             </div>
 
             {/* tabs */}
             <div className="px-4 pb-3">
               <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#f3f1ea] text-[13px] font-bold">
-                {[['all', `الكل (${items.length})`], ['unread', `غير المقروءة (${unread})`]].map(([k, label]) => (
+                {[['all', t('Toutes ({items})', { items: items.length })], ['unread', t('Non lues ({unread})', { unread })]].map(([k, label]) => (
                   <button key={k} onClick={() => setTab(k)}
                     className={`py-2 rounded-lg transition ${tab === k ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#7a7a7a]'}`}>
                     {label}
@@ -183,27 +185,28 @@ export default function NotificationBell({ onDark = false }) {
               <div className="mx-4 mb-3 rounded-xl bg-gradient-to-l from-[#e4211b] to-[#b3170f] text-white p-3.5 flex items-center gap-3">
                 <span className="text-2xl">🔔</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-extrabold">فعّل إشعارات الهاتف</p>
-                  <p className="text-[11.5px] opacity-90 leading-snug">باش توصلك الإشعارات حتى لو الموقع مسكّر</p>
+                  <p className="text-[13px] font-extrabold">{t('Activez les notifications du téléphone')}</p>
+                  <p className="text-[11.5px] opacity-90 leading-snug">{t('Pour recevoir les notifications même quand le site est fermé')}</p>
                 </div>
                 <button onClick={turnOn} disabled={busy} className="shrink-0 bg-white text-[#b3170f] text-[12.5px] font-extrabold rounded-lg px-3.5 py-2 active:scale-95 disabled:opacity-60">
-                  {busy ? '...' : 'تفعيل'}
+                  {busy ? '...' : t('Activer')}
                 </button>
               </div>
             )}
             {ps === 'granted' && (
-              <p className="mx-4 mb-3 text-[12px] font-semibold text-[#17692f] bg-[#eaf7ee] rounded-lg px-3 py-2">✅ إشعارات الهاتف مفعّلة على هذا الجهاز</p>
+              <p className="mx-4 mb-3 text-[12px] font-semibold text-[#17692f] bg-[#eaf7ee] rounded-lg px-3 py-2">{t('✅ Notifications du téléphone activées sur cet appareil')}</p>
             )}
             {ps === 'ios-install' && (
               <p className="mx-4 mb-3 text-[12px] leading-relaxed bg-[#fff8e6] border border-[#f0d58a] text-[#8a6d1d] rounded-lg px-3 py-2">
-                على iPhone: افتح الموقع في Safari ← زر المشاركة ← «أضف إلى الشاشة الرئيسية»، ثم افتح التطبيق من الأيقونة وفعّل الإشعارات.
+                
+                {t('Sur iPhone : ouvrez le site dans Safari → bouton Partager → « Sur l\'écran d\'accueil », puis ouvrez l\'application depuis l\'icône et activez les notifications.')}
               </p>
             )}
             {ps === 'denied' && (
-              <p className="mx-4 mb-3 text-[12px] bg-[#fdecea] text-[#b3170f] rounded-lg px-3 py-2">الإشعارات محظورة — فعّلها من إعدادات المتصفح للموقع (القفل بجانب العنوان).</p>
+              <p className="mx-4 mb-3 text-[12px] bg-[#fdecea] text-[#b3170f] rounded-lg px-3 py-2">{t('Les notifications sont bloquées — activez-les dans les paramètres du navigateur pour le site (le cadenas à côté de l\'adresse).')}</p>
             )}
             {ps === 'unsupported' && (
-              <p className="mx-4 mb-3 text-[12px] bg-[#f1f0ec] text-[#6b6b6b] rounded-lg px-3 py-2">إشعارات خارج الموقع تحتاج رابط https ومتصفح يدعمها.</p>
+              <p className="mx-4 mb-3 text-[12px] bg-[#f1f0ec] text-[#6b6b6b] rounded-lg px-3 py-2">{t('Les notifications hors du site nécessitent un lien https et un navigateur compatible.')}</p>
             )}
 
             {/* list */}
@@ -211,8 +214,8 @@ export default function NotificationBell({ onDark = false }) {
               {shown.length === 0 && (
                 <div className="px-4 py-12 text-center">
                   <div className="mx-auto w-14 h-14 rounded-full bg-[#f3f1ea] flex items-center justify-center text-2xl mb-3">🔕</div>
-                  <p className="text-sm font-bold text-[#444]">{tab === 'unread' ? 'كل شيء مقروء' : 'لا توجد إشعارات'}</p>
-                  <p className="text-xs text-[#9a9a9a] mt-1">الجديد يظهر هنا مباشرة</p>
+                  <p className="text-sm font-bold text-[#444]">{tab === 'unread' ? t('Tout est lu') : t('Aucune notification')}</p>
+                  <p className="text-xs text-[#9a9a9a] mt-1">{t('Les nouveautés apparaissent ici en direct')}</p>
                 </div>
               )}
               {groups.map((g) => (
@@ -222,7 +225,7 @@ export default function NotificationBell({ onDark = false }) {
                     <button
                       key={n.id}
                       onClick={() => { setOpen(false); go(n) }}
-                      className={`w-full flex items-start gap-3 text-right px-4 py-3 border-b border-[#f4f2ec] transition hover:bg-[#faf9f5] active:bg-[#f4f2ec] ${n.is_read ? '' : 'bg-[#fff7f2]'}`}
+                      className={`w-full flex items-start gap-3 text-left px-4 py-3 border-b border-[#f4f2ec] transition hover:bg-[#faf9f5] active:bg-[#f4f2ec] ${n.is_read ? '' : 'bg-[#fff7f2]'}`}
                     >
                       <span className={`w-10 h-10 rounded-xl flex items-center justify-center text-[18px] shrink-0 ${TONE[GROUP[n.type] || 'other']}`}>
                         {ICON[n.type] || '🔔'}
@@ -234,7 +237,7 @@ export default function NotificationBell({ onDark = false }) {
                         </span>
                         <span className="block text-[12.5px] text-[#666] mt-0.5 leading-snug line-clamp-2 break-words">{n.message}</span>
                       </span>
-                      {!n.is_read && <span className="w-2.5 h-2.5 rounded-full bg-[#e4211b] mt-1.5 shrink-0" aria-label="جديد" />}
+                      {!n.is_read && <span className="w-2.5 h-2.5 rounded-full bg-[#e4211b] mt-1.5 shrink-0" aria-label={t('Neuf')} />}
                     </button>
                   ))}
                 </div>

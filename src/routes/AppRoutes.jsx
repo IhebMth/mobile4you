@@ -3,6 +3,8 @@ import { AuthProvider } from '../context/AuthContext'
 import ProtectedRoute from '../components/layout/ProtectedLayout'
 
 import Login from '../pages/Login'
+import ForgotPassword from '../pages/ForgotPassword'
+import ResetPassword from '../pages/ResetPassword'
 import TrackOrder from '../pages/public/TrackOrder'
 
 import ComptoirDashboard from '../pages/comptoir/ComptoirDashboard'
@@ -29,16 +31,26 @@ import PriceGuide from '../pages/shared/PriceGuide'
 import ScanRedirect from '../pages/shared/ScanRedirect'
 import ProductScanRedirect from '../pages/shared/ProductScanRedirect'
 import Clients from '../pages/shared/Clients'
+import MyAccount from '../pages/shared/MyAccount'
 import { NotificationProvider } from '../context/NotificationContext'
+import { LanguageProvider, useI18n } from '../i18n/LanguageContext'
+
+function Unauthorized() {
+  const { t } = useI18n()
+  return <p style={{ padding: 40 }}>{t('Vous n\'avez pas accès à cette page')}</p>
+}
 
 export default function AppRoutes() {
   return (
+    <LanguageProvider>
     <BrowserRouter>
       <AuthProvider>
         <NotificationProvider>
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/track/:access_token" element={<TrackOrder />} />
 
             {/* Shared by all three roles — registered ONCE.
@@ -46,6 +58,7 @@ export default function AppRoutes() {
                 match the first wrapper only, and a role not in it is sent to /unauthorized.) */}
             <Route element={<ProtectedRoute allowedRoles={['admin', 'comptoir', 'technicien']} />}>
               <Route path="/price-guide" element={<PriceGuide />} />
+              <Route path="/account" element={<MyAccount />} />
               <Route path="/o/:orderNumber" element={<ScanRedirect />} />
               <Route path="/p/:productId" element={<ProductScanRedirect />} />
             </Route>
@@ -85,13 +98,11 @@ export default function AppRoutes() {
               <Route path="/admin/reports/daily" element={<DailyReport />} />
             </Route>
 
-            <Route
-              path="/unauthorized"
-              element={<p style={{ padding: 40 }}>غير مصرح لك بالوصول لهذي الصفحة</p>}
-            />
+            <Route path="/unauthorized" element={<Unauthorized />} />
           </Routes>
         </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>
+    </LanguageProvider>
   )
 }

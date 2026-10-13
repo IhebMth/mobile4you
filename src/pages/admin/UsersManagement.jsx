@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { t } from '../../i18n/LanguageContext'
 
 const ROLE_LABELS = { admin: 'Admin', comptoir: 'Comptoir', technicien: 'Technicien' }
 const EMPTY = { full_name: '', phone: '', email: '', password: '', role: 'comptoir' }
@@ -23,6 +24,8 @@ async function callFn(name, body) {
   })
   let result = {}
   try { result = await res.json() } catch { /* empty body */ }
+  // the Edge Functions answer in French: show the message in the current language when we know it
+  if (result && typeof result.error === 'string') result.error = t(result.error)
   return { ok: res.ok, result }
 }
 
@@ -64,7 +67,7 @@ export default function UsersManagement() {
     setSaving(true)
     const { ok, result } = await callFn('create-employee', form)
     setSaving(false)
-    if (!ok) { setError(result.error || 'صار خطأ'); return }
+    if (!ok) { setError(result.error || t('Une erreur est survenue')); return }
     setCredentials({ name: form.full_name, email: form.email.trim().toLowerCase(), password: form.password })
     setForm(EMPTY)
     setShowForm(false)
@@ -85,7 +88,7 @@ export default function UsersManagement() {
     if (edit.password) body.password = edit.password
     const { ok, result } = await callFn('update-employee', body)
     setEditSaving(false)
-    if (!ok) { setEditError(result.error || 'صار خطأ'); return }
+    if (!ok) { setEditError(result.error || t('Une erreur est survenue')); return }
     if (edit.password) {
       setCredentials({ name: edit.full_name, email: edit.email || edit.origEmail, password: edit.password })
     }
@@ -94,9 +97,9 @@ export default function UsersManagement() {
   }
 
   async function handleDelete(userId, name) {
-    if (!confirm(`متأكد تحب تحذف ${name}؟ هذا يحذف حساب الدخول نهائيًا.`)) return
+    if (!confirm(t('Voulez-vous vraiment supprimer {name} ? Le compte de connexion sera supprimé définitivement.', { name }))) return
     const { ok, result } = await callFn('delete-employee', { user_id: userId })
-    if (!ok) { alert(result.error || 'صار خطأ في الحذف'); return }
+    if (!ok) { alert(result.error || t('Erreur lors de la suppression')); return }
     loadUsers()
   }
 
@@ -109,11 +112,11 @@ export default function UsersManagement() {
     <div>
       <div className="flex justify-between items-end mb-6 pb-4 border-b border-[#e5e5e5]">
         <div>
-          <h1 className="text-xl font-extrabold text-[#1a1a1a] mb-1">الموظفون</h1>
-          <p className="text-sm text-[#6b6b6b]">{users.length} حساب</p>
+          <h1 className="text-xl font-extrabold text-[#1a1a1a] mb-1">{t('Employés')}</h1>
+          <p className="text-sm text-[#6b6b6b]">{t('{n} compte(s)', { n: users.length })}</p>
         </div>
         <button onClick={() => setShowForm(!showForm)} className="bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90">
-          {showForm ? 'إلغاء' : '+ إضافة موظف'}
+          {showForm ? t('Annuler') : t('+ Ajouter un employé')}
         </button>
       </div>
 
@@ -125,7 +128,7 @@ export default function UsersManagement() {
           </div>
           <p className="text-sm mt-2">Email: <b className="select-all">{credentials.email}</b></p>
           <p className="text-sm">Password: <b className="select-all">{credentials.password}</b></p>
-          <p className="text-xs text-[#8a6d1d] mt-2" dir="rtl">كلمة السر تظهر هنا مرة وحدة فقط. بعد ما تقفل هذا المربع ما تنجمش تشوفها — تنجم تعمل «كلمة سر جديدة» من زر تعديل.</p>
+          <p className="text-xs text-[#8a6d1d] mt-2" dir="ltr">{t('Le mot de passe n\'apparaît ici qu\'une seule fois. Une fois cette fenêtre fermée, vous ne pourrez plus le voir — vous pourrez créer un « nouveau mot de passe » via le bouton Modifier.')}</p>
           <button onClick={copyCredentials} className="mt-3 bg-[#1a1a1a] text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
             {copied ? 'Copied ✓' : 'Copy'}
           </button>
@@ -136,29 +139,29 @@ export default function UsersManagement() {
         <form onSubmit={handleCreate} className="bg-white border border-[#e5e5e5] rounded-xl p-6 mb-6 max-w-xl">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-semibold mb-1.5">الاسم الكامل</label>
+              <label className="block text-sm font-semibold mb-1.5">{t('Nom complet')}</label>
               <input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className={inputCls} required />
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-1.5">الهاتف</label>
+              <label className="block text-sm font-semibold mb-1.5">{t('Téléphone')}</label>
               <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputCls} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-semibold mb-1.5">البريد الإلكتروني (للدخول)</label>
+              <label className="block text-sm font-semibold mb-1.5">{t('E-mail (pour la connexion)')}</label>
               <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputCls} required />
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-1.5">كلمة السر</label>
+              <label className="block text-sm font-semibold mb-1.5">{t('Mot de passe')}</label>
               <div className="flex gap-2">
                 <input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputCls} required minLength={6} dir="ltr" />
-                <button type="button" onClick={() => setForm({ ...form, password: randomPassword() })} className="shrink-0 border border-[#e5e5e5] rounded-lg px-3 text-xs font-semibold hover:bg-[#faf9f5]">توليد</button>
+                <button type="button" onClick={() => setForm({ ...form, password: randomPassword() })} className="shrink-0 border border-[#e5e5e5] rounded-lg px-3 text-xs font-semibold hover:bg-[#faf9f5]">{t('Générer')}</button>
               </div>
             </div>
           </div>
           <div className="mb-4">
-            <label className="block text-sm font-semibold mb-1.5">الدور</label>
+            <label className="block text-sm font-semibold mb-1.5">{t('Rôle')}</label>
             <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={inputCls}>
               <option value="comptoir">Comptoir</option>
               <option value="technicien">Technicien</option>
@@ -167,22 +170,22 @@ export default function UsersManagement() {
           </div>
           {error && <p className="text-[#b3170f] text-sm mb-3">{error}</p>}
           <button type="submit" disabled={saving} className="bg-[#e4211b] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90 disabled:opacity-60">
-            {saving ? 'جاري الإضافة...' : 'إضافة الموظف'}
+            {saving ? t('Ajout en cours...') : t('Ajouter l\'employé')}
           </button>
         </form>
       )}
 
       <div className="bg-white border border-[#e5e5e5] rounded-xl overflow-x-auto">
         {loading ? (
-          <p className="p-6 text-sm text-[#6b6b6b]">جاري التحميل...</p>
+          <p className="p-6 text-sm text-[#6b6b6b]">{t('Chargement...')}</p>
         ) : (
-          <table className="w-full text-sm min-w-[560px]">
+          <table className="w-full text-sm min-w-140">
             <thead>
               <tr className="bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold">
-                <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الاسم</th>
-                <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الإيميل</th>
-                <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الهاتف</th>
-                <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الدور</th>
+                <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Nom')}</th>
+                <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('E-mail')}</th>
+                <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Téléphone')}</th>
+                <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Rôle')}</th>
                 <th className="px-5 py-3 border-b border-[#e5e5e5]"></th>
               </tr>
             </thead>
@@ -194,8 +197,8 @@ export default function UsersManagement() {
                   <td className="px-5 py-3.5 border-b border-[#ececE4] text-[#6b6b6b]">{u.phone || '—'}</td>
                   <td className="px-5 py-3.5 border-b border-[#ececE4]">{ROLE_LABELS[u.role] || u.role}</td>
                   <td className="px-5 py-3.5 border-b border-[#ececE4] whitespace-nowrap">
-                    <button onClick={() => openEdit(u)} className="text-[#1a1a1a] text-xs font-semibold hover:underline ml-4">تعديل</button>
-                    <button onClick={() => handleDelete(u.id, u.full_name)} className="text-[#b3170f] text-xs hover:underline">حذف</button>
+                    <button onClick={() => openEdit(u)} className="text-[#1a1a1a] text-xs font-semibold hover:underline ml-4">{t('Modifier')}</button>
+                    <button onClick={() => handleDelete(u.id, u.full_name)} className="text-[#b3170f] text-xs hover:underline">{t('Supprimer')}</button>
                   </td>
                 </tr>
               ))}
@@ -208,21 +211,21 @@ export default function UsersManagement() {
       {edit && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <form onSubmit={handleEditSave} className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-extrabold mb-4">تعديل الموظف</h2>
+            <h2 className="text-lg font-extrabold mb-4">{t('Modifier l\'employé')}</h2>
             <div className="mb-3">
-              <label className="block text-sm font-semibold mb-1.5">الاسم الكامل</label>
+              <label className="block text-sm font-semibold mb-1.5">{t('Nom complet')}</label>
               <input value={edit.full_name} onChange={(e) => setEdit({ ...edit, full_name: e.target.value })} className={inputCls} required />
             </div>
             <div className="mb-3">
-              <label className="block text-sm font-semibold mb-1.5">الهاتف</label>
+              <label className="block text-sm font-semibold mb-1.5">{t('Téléphone')}</label>
               <input value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} className={inputCls} />
             </div>
             <div className="mb-3">
-              <label className="block text-sm font-semibold mb-1.5">الإيميل (للدخول)</label>
+              <label className="block text-sm font-semibold mb-1.5">{t('E-mail (pour la connexion)')}</label>
               <input type="email" dir="ltr" value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} className={inputCls} required />
             </div>
             <div className="mb-3">
-              <label className="block text-sm font-semibold mb-1.5">الدور</label>
+              <label className="block text-sm font-semibold mb-1.5">{t('Rôle')}</label>
               <select value={edit.role} onChange={(e) => setEdit({ ...edit, role: e.target.value })} className={inputCls}>
                 <option value="comptoir">Comptoir</option>
                 <option value="technicien">Technicien</option>
@@ -230,18 +233,18 @@ export default function UsersManagement() {
               </select>
             </div>
             <div className="mb-4">
-              <label className="block text-sm font-semibold mb-1.5">كلمة سر جديدة <span className="text-[#6b6b6b] font-normal">(خليها فارغة إذا ما تحبش تبدّلها)</span></label>
+              <label className="block text-sm font-semibold mb-1.5">{t('Nouveau mot de passe')} <span className="text-[#6b6b6b] font-normal">{t('(laissez vide pour ne pas le changer)')}</span></label>
               <div className="flex gap-2">
                 <input type="text" dir="ltr" value={edit.password} onChange={(e) => setEdit({ ...edit, password: e.target.value })} className={inputCls} minLength={6} placeholder="••••••" />
-                <button type="button" onClick={() => setEdit({ ...edit, password: randomPassword() })} className="shrink-0 border border-[#e5e5e5] rounded-lg px-3 text-xs font-semibold hover:bg-[#faf9f5]">توليد</button>
+                <button type="button" onClick={() => setEdit({ ...edit, password: randomPassword() })} className="shrink-0 border border-[#e5e5e5] rounded-lg px-3 text-xs font-semibold hover:bg-[#faf9f5]">{t('Générer')}</button>
               </div>
             </div>
             {editError && <p className="text-[#b3170f] text-sm mb-3">{editError}</p>}
             <div className="flex gap-3">
               <button type="submit" disabled={editSaving} className="bg-[#e4211b] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90 disabled:opacity-60">
-                {editSaving ? 'جاري الحفظ...' : 'حفظ'}
+                {editSaving ? t('Enregistrement...') : t('Enregistrer')}
               </button>
-              <button type="button" onClick={() => setEdit(null)} className="border border-[#e5e5e5] text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#faf9f5]">إلغاء</button>
+              <button type="button" onClick={() => setEdit(null)} className="border border-[#e5e5e5] text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#faf9f5]">{t('Annuler')}</button>
             </div>
           </form>
         </div>

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import QrCode from './QrCode'
 import logo from '../../assets/logo.png'
 import { SHOP, trackUrl, scanUrl } from '../../lib/shopConfig'
+import { t, getLocale } from '../../i18n/LanguageContext'
 
 // order = { order_number, access_token, device_model, issue_description,
 //           price_min, price_max, created_at, client_name }
@@ -18,7 +19,7 @@ export default function PrintOrderDialog({ order, onClose }) {
     setTimeout(() => window.print(), 80) // let the right layout reach the DOM first
   }
 
-  const date = new Date(order.created_at || Date.now()).toLocaleString('fr-TN')
+  const date = new Date(order.created_at || Date.now()).toLocaleString(getLocale())
   const hasEstimate = order.price_min != null && order.price_min !== ''
   const estimate = hasEstimate
     ? order.price_max != null && order.price_max !== '' && Number(order.price_max) !== Number(order.price_min)
@@ -34,28 +35,28 @@ export default function PrintOrderDialog({ order, onClose }) {
       <div className="no-print fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/40">
         <div className="bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 shadow-xl text-center">
           <img src={logo} alt="" className="w-12 h-12 rounded-xl object-cover mx-auto mb-2" />
-          <h3 className="font-extrabold text-base mb-1">تم تسجيل الطلب ✅</h3>
+          <h3 className="font-extrabold text-base mb-1">{t('Commande enregistrée ✅')}</h3>
           <p className="text-sm text-[#6b6b6b] mb-4" dir="ltr">{order.order_number}</p>
 
           <div className="flex justify-center mb-3 border border-[#e5e5e5] rounded-xl py-4">
             <QrCode value={trackUrl(order.access_token)} size={150} />
           </div>
-          <p className="text-xs text-[#6b6b6b] mb-4">الحريف يمسح الكود باش يتابع جهازو ويلقى السعر النهائي بعد تأكيد التقني</p>
+          <p className="text-xs text-[#6b6b6b] mb-4">{t('Le client scanne le code pour suivre son appareil et voir le prix final après confirmation du technicien')}</p>
 
           <div className="grid grid-cols-2 gap-2 mb-2">
             <button onClick={() => print('receipt')}
-              className="bg-[#e4211b] text-white font-semibold text-sm py-3 rounded-lg">🧾 وصل الحريف</button>
+              className="bg-[#e4211b] text-white font-semibold text-sm py-3 rounded-lg">{t('🧾 Reçu du client')}</button>
             <button onClick={() => print('sticker')}
-              className="bg-[#1a1a1a] text-white font-semibold text-sm py-3 rounded-lg">🏷️ ملصق الجهاز</button>
+              className="bg-[#1a1a1a] text-white font-semibold text-sm py-3 rounded-lg">{t('🏷️ Étiquette de l\'appareil')}</button>
           </div>
           <button onClick={onClose}
-            className="w-full border border-[#e5e5e5] text-sm py-3 rounded-lg text-[#6b6b6b]">متابعة بلا طباعة</button>
+            className="w-full border border-[#e5e5e5] text-sm py-3 rounded-lg text-[#6b6b6b]">{t('Continuer sans imprimer')}</button>
         </div>
       </div>
 
       {/* ---------- print-only area (portal to <body>; #root is hidden while printing) ---------- */}
       {createPortal(
-        <div id="print-root" data-mode={mode} dir="rtl">
+        <div id="print-root" data-mode={mode} dir="ltr">
           <style>{`
             #print-root { display: none; }
             @media print {
@@ -76,7 +77,7 @@ export default function PrintOrderDialog({ order, onClose }) {
               .receipt .order .lbl { font-size: 8pt; }
               .receipt .order .num { font-size: 14pt; font-weight: 800; direction: ltr; letter-spacing: .5px; }
               .receipt .order .dt { font-size: 8.5pt; direction: ltr; }
-              .receipt .info { width: 100%; border-collapse: collapse; text-align: right; font-size: 10pt; }
+              .receipt .info { width: 100%; border-collapse: collapse; text-align: left; font-size: 10pt; }
               .receipt .info td { padding: 1.3mm 0; border-bottom: .2mm dashed #777; vertical-align: top; }
               .receipt .info td:first-child { width: 22%; font-weight: 800; font-size: 9pt; white-space: nowrap; }
               .receipt .est { margin-top: 3mm; border: .4mm dashed #000; border-radius: 2.5mm; padding: 2mm; }
@@ -89,7 +90,7 @@ export default function PrintOrderDialog({ order, onClose }) {
               .receipt .foot { margin-top: 3.5mm; padding-top: 2mm; border-top: .2mm dashed #777; font-size: 8pt; line-height: 1.4; }
 
               .sticker { width: 50mm; height: 30mm; display: flex; align-items: center; gap: 2mm; padding: 1.5mm; box-sizing: border-box; overflow: hidden; }
-              .sticker .t { font-size: 9pt; line-height: 1.25; text-align: right; min-width: 0; }
+              .sticker .t { font-size: 9pt; line-height: 1.25; text-align: left; min-width: 0; }
               .sticker .n { font-size: 10pt; font-weight: 800; direction: ltr; }
               .sticker .s { font-size: 7pt; font-weight: 700; margin-top: 1mm; }
             }
@@ -102,36 +103,36 @@ export default function PrintOrderDialog({ order, onClose }) {
               <div className="sub">{[SHOP.phone && <span key="p" dir="ltr">{SHOP.phone}</span>, SHOP.address].filter(Boolean).reduce((a, b) => [a, ' · ', b])}</div>
             )}
 
-            <div className="title">وصل استلام جهاز</div>
+            <div className="title">{t('Reçu de dépôt d\'appareil')}</div>
 
             <div className="order">
-              <div className="lbl">رقم الطلب</div>
+              <div className="lbl">{t('N° de commande')}</div>
               <div className="num">{order.order_number}</div>
               <div className="dt">{date}</div>
             </div>
 
             <table className="info">
               <tbody>
-                {order.client_name && <tr><td>الحريف</td><td>{order.client_name}</td></tr>}
-                <tr><td>الجهاز</td><td>{order.device_model}</td></tr>
-                {order.issue_description && <tr><td>العطل</td><td>{order.issue_description}</td></tr>}
+                {order.client_name && <tr><td>{t('Client')}</td><td>{order.client_name}</td></tr>}
+                <tr><td>{t('Appareil')}</td><td>{order.device_model}</td></tr>
+                {order.issue_description && <tr><td>{t('Panne')}</td><td>{order.issue_description}</td></tr>}
               </tbody>
             </table>
 
             {estimate && (
               <div className="est">
-                <div className="lbl">السعر التقديري</div>
-                <div className="val"><span>{estimate}</span> د.ت</div>
-                <div className="note">هذا سعر تقديري من المحل. السعر النهائي يؤكّدو التقني، وتلقاه في صفحة المتابعة بعد مسح الكود.</div>
+                <div className="lbl">{t('Prix estimé')}</div>
+                <div className="val"><span>{estimate}</span>  {t('DT')}</div>
+                <div className="note">{t('Ceci est un prix estimatif de la boutique. Le prix final est confirmé par le technicien et s\'affiche sur la page de suivi après le scan du code.')}</div>
               </div>
             )}
 
             <div className="qrbox">
               <QrCode value={trackUrl(order.access_token)} size={135} />
-              <div className="cap">امسح الكود لمتابعة جهازك<br />ومعرفة السعر النهائي</div>
+              <div className="cap">{t('Scannez le code pour suivre votre appareil')}<br />{t('et connaître le prix final')}</div>
             </div>
 
-            <div className="foot">يرجى الاحتفاظ بهذا الوصل عند استلام الجهاز<br />شكراً لثقتكم 🙏</div>
+            <div className="foot">{t('Veuillez conserver ce reçu pour récupérer l\'appareil')}<br />{t('Merci de votre confiance 🙏')}</div>
           </div>
 
           <div className="sticker">

@@ -1,23 +1,24 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { t, getLocale } from '../../i18n/LanguageContext'
 
 // Every income/expense source is declared ONCE here.
 // Adding a new source later (e.g. phone sales) = one new line, nothing else changes.
 const SOURCES = [
-  { key: 'repair_income', label: 'مداخيل الصيانة', kind: 'income' },
-  { key: 'accessory_sale', label: 'بيع إكسسوارات', kind: 'income' },
-  { key: 'phone_sale', label: 'بيع هواتف', kind: 'income' },
-  { key: 'debt_collection', label: 'تحصيل ديون الحرفاء', kind: 'income' },
-  { key: 'loan_return', label: 'رجوع سلف', kind: 'income' },
-  { key: 'repair_part', label: 'مصاريف قطع الغيار', kind: 'expense' },
-  { key: 'general', label: 'مصاريف عامة', kind: 'expense' },
-  { key: 'loan_out', label: 'سلف من الصندوق', kind: 'expense' },
-  { key: 'debt_payment', label: 'تسديد ديون الموردين', kind: 'expense' },
-  { key: 'withdrawal', label: 'سحوبات', kind: 'expense' },
+  { key: 'repair_income', label: t('Revenus des réparations'), kind: 'income' },
+  { key: 'accessory_sale', label: t('Vente d\'accessoires'), kind: 'income' },
+  { key: 'phone_sale', label: t('Vente de téléphones'), kind: 'income' },
+  { key: 'debt_collection', label: t('Encaissement des dettes clients'), kind: 'income' },
+  { key: 'loan_return', label: t('Avances remboursées'), kind: 'income' },
+  { key: 'repair_part', label: t('Frais de pièces détachées'), kind: 'expense' },
+  { key: 'general', label: t('Dépenses générales'), kind: 'expense' },
+  { key: 'loan_out', label: t('Avances prises sur la caisse'), kind: 'expense' },
+  { key: 'debt_payment', label: t('Remboursement des dettes fournisseurs'), kind: 'expense' },
+  { key: 'withdrawal', label: t('Retraits'), kind: 'expense' },
 ]
 
 // rows without a source_type (e.g. withdrawals) fall back to their type
-const sourceOf = (t) => t.source_type || t.type
+const sourceOf = (tx) => tx.source_type || tx.type
 
 function nextDay(dateStr) {
   const d = new Date(dateStr + 'T00:00:00')
@@ -55,8 +56,8 @@ export default function DailyReport() {
   }
 
   const breakdown = SOURCES.map((s) => {
-    const rows = transactions.filter((t) => sourceOf(t) === s.key)
-    return { ...s, total: rows.reduce((sum, t) => sum + Number(t.amount), 0), count: rows.length }
+    const rows = transactions.filter((tx) => sourceOf(tx) === s.key)
+    return { ...s, total: rows.reduce((sum, tx) => sum + Number(tx.amount), 0), count: rows.length }
   })
 
   const incomeRows = breakdown.filter((b) => b.kind === 'income')
@@ -69,8 +70,8 @@ export default function DailyReport() {
     <div>
       <div className="flex justify-between items-end mb-6 pb-4 border-b border-[#e5e5e5]">
         <div>
-          <h1 className="text-xl font-extrabold text-[#1a1a1a] mb-1">التقرير اليومي</h1>
-          <p className="text-sm text-[#6b6b6b]">تفصيل المداخيل والمصاريف حسب المصدر</p>
+          <h1 className="text-xl font-extrabold text-[#1a1a1a] mb-1">{t('Rapport du jour')}</h1>
+          <p className="text-sm text-[#6b6b6b]">{t('Détail des revenus et dépenses par source')}</p>
         </div>
         <input
           type="date"
@@ -82,68 +83,69 @@ export default function DailyReport() {
 
       {error && (
         <p className="bg-[#fdeaea] text-[#b3170f] text-sm rounded-lg px-4 py-3 mb-4">
-          خطأ في التحميل: {error}
+          
+          {t('Erreur de chargement :')} {error}
         </p>
       )}
 
       {loading ? (
-        <p className="text-sm text-[#6b6b6b]">جاري التحميل...</p>
+        <p className="text-sm text-[#6b6b6b]">{t('Chargement...')}</p>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="bg-white border border-[#e5e5e5] rounded-xl p-5">
-              <p className="text-xs text-[#6b6b6b] mb-1">إجمالي المداخيل</p>
-              <p className="text-2xl font-extrabold text-[#1f8a4c]">{totalIncome.toFixed(2)} د.ت</p>
+              <p className="text-xs text-[#6b6b6b] mb-1">{t('Total des revenus')}</p>
+              <p className="text-2xl font-extrabold text-[#1f8a4c]">{totalIncome.toFixed(2)}  {t('DT')}</p>
             </div>
             <div className="bg-white border border-[#e5e5e5] rounded-xl p-5">
-              <p className="text-xs text-[#6b6b6b] mb-1">إجمالي المصاريف</p>
-              <p className="text-2xl font-extrabold text-[#b3170f]">{totalExpense.toFixed(2)} د.ت</p>
+              <p className="text-xs text-[#6b6b6b] mb-1">{t('Total des dépenses')}</p>
+              <p className="text-2xl font-extrabold text-[#b3170f]">{totalExpense.toFixed(2)}  {t('DT')}</p>
             </div>
             <div className="bg-white border border-[#e5e5e5] rounded-xl p-5">
-              <p className="text-xs text-[#6b6b6b] mb-1">الصافي</p>
+              <p className="text-xs text-[#6b6b6b] mb-1">{t('Net')}</p>
               <p className={`text-2xl font-extrabold ${net >= 0 ? 'text-[#1f8a4c]' : 'text-[#b3170f]'}`}>
-                {net.toFixed(2)} د.ت
+                {net.toFixed(2)}  {t('DT')}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-6">
-            <BreakdownCard title="المداخيل حسب المصدر" rows={incomeRows} kind="income" />
-            <BreakdownCard title="المصاريف حسب المصدر" rows={expenseRows} kind="expense" />
+            <BreakdownCard title={t('Revenus par source')} rows={incomeRows} kind="income" />
+            <BreakdownCard title={t('Dépenses par source')} rows={expenseRows} kind="expense" />
           </div>
 
           <div className="bg-white border border-[#e5e5e5] rounded-xl overflow-hidden">
             <div className="px-5 py-3 bg-[#faf9f5] border-b border-[#e5e5e5]">
-              <h3 className="text-xs font-bold text-[#6b6b6b]">كل العمليات (بالترتيب الزمني)</h3>
+              <h3 className="text-xs font-bold text-[#6b6b6b]">{t('Toutes les opérations (par ordre chronologique)')}</h3>
             </div>
             {transactions.length === 0 ? (
-              <p className="p-6 text-sm text-[#6b6b6b]">ما فماش عمليات في هذا اليوم</p>
+              <p className="p-6 text-sm text-[#6b6b6b]">{t('Aucune opération ce jour-là')}</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold">
-                    <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الوقت</th>
-                    <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">المصدر</th>
-                    <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">التفصيل</th>
-                    <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">بواسطة</th>
-                    <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">المبلغ</th>
+                    <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Heure')}</th>
+                    <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Source')}</th>
+                    <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Détail')}</th>
+                    <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Par')}</th>
+                    <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Montant')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((t) => {
-                    const src = SOURCES.find((s) => s.key === sourceOf(t))
+                  {transactions.map((tx) => {
+                    const src = SOURCES.find((s) => s.key === sourceOf(tx))
                     const inc = src?.kind === 'income'
                     return (
-                      <tr key={t.id} className="hover:bg-[#fbfaf6]">
+                      <tr key={tx.id} className="hover:bg-[#fbfaf6]">
                         <td className="px-5 py-3 border-b border-[#ececE4] text-xs text-[#6b6b6b]">
-                          {new Date(t.created_at).toLocaleTimeString('ar-TN', { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(tx.created_at).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' })}
                         </td>
-                        <td className="px-5 py-3 border-b border-[#ececE4]">{src?.label || t.type}</td>
+                        <td className="px-5 py-3 border-b border-[#ececE4]">{src?.label || tx.type}</td>
                         <td className="px-5 py-3 border-b border-[#ececE4] text-xs text-[#6b6b6b]">
-                          {t.description || '—'}
+                          {tx.description || '—'}
                         </td>
                         <td className="px-5 py-3 border-b border-[#ececE4] text-[#6b6b6b]">
-                          {t.profiles?.full_name || '—'}
+                          {tx.profiles?.full_name || '—'}
                         </td>
                         <td
                           className={`px-5 py-3 border-b border-[#ececE4] font-bold ${
@@ -151,7 +153,7 @@ export default function DailyReport() {
                           }`}
                         >
                           {inc ? '+' : '-'}
-                          {Number(t.amount).toFixed(2)} د.ت
+                          {Number(tx.amount).toFixed(2)}  {t('DT')}
                         </td>
                       </tr>
                     )
@@ -179,10 +181,10 @@ function BreakdownCard({ title, rows, kind }) {
           {rows.map((r) => (
             <tr key={r.key} className="border-b border-[#ececE4] last:border-0">
               <td className="px-5 py-3">{r.label}</td>
-              <td className="px-5 py-3 text-xs text-[#6b6b6b]">{r.count} عملية</td>
+              <td className="px-5 py-3 text-xs text-[#6b6b6b]">{r.count}  {t('opération(s)')}</td>
               <td className={`px-5 py-3 text-left font-bold ${r.total > 0 ? color : 'text-[#b5b5b5]'}`}>
                 {r.total > 0 ? sign : ''}
-                {r.total.toFixed(2)} د.ت
+                {r.total.toFixed(2)}  {t('DT')}
               </td>
             </tr>
           ))}

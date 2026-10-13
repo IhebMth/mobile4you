@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
+import { t } from '../../i18n/LanguageContext'
 
 export default function ExpensesApproval() {
   const { user } = useAuth()
@@ -47,7 +48,7 @@ export default function ExpensesApproval() {
       .update({ is_approved: true, approved_by: user.id })
       .eq('id', id)
     if (error) {
-      alert('ما نجحش الاعتماد: ' + error.message)
+      alert(t('Échec de la validation :') + ' ' + error.message)
       return
     }
     loadPending()
@@ -58,33 +59,34 @@ export default function ExpensesApproval() {
   return (
     <div>
       <div className="mb-6 pb-4 border-b border-[#e5e5e5]">
-        <h1 className="text-xl font-extrabold text-[#1a1a1a] mb-1">اعتماد المصاريف</h1>
-        <p className="text-sm text-[#6b6b6b]">{totalPending} مصروف بانتظار الاعتماد</p>
+        <h1 className="text-xl font-extrabold text-[#1a1a1a] mb-1">{t('Validation des dépenses')}</h1>
+        <p className="text-sm text-[#6b6b6b]">{totalPending}  {t('dépense(s) en attente de validation')}</p>
       </div>
 
       {loadError && (
         <p className="bg-[#fdeaea] text-[#b3170f] text-sm rounded-lg px-4 py-3 mb-4">
-          خطأ في التحميل: {loadError}
+          
+          {t('Erreur de chargement :')} {loadError}
         </p>
       )}
 
       {loading ? (
-        <p className="text-sm text-[#6b6b6b]">جاري التحميل...</p>
+        <p className="text-sm text-[#6b6b6b]">{t('Chargement...')}</p>
       ) : (
         <>
           <div className="mb-6">
-            <h3 className="text-xs font-bold text-[#e4211b] mb-3">مصاريف قطع الغيار</h3>
+            <h3 className="text-xs font-bold text-[#e4211b] mb-3">{t('Frais de pièces détachées')}</h3>
             <div className="bg-white border border-[#e5e5e5] rounded-xl overflow-hidden">
               {repairExpenses.length === 0 ? (
-                <p className="p-6 text-sm text-[#6b6b6b]">لا يوجد مصاريف قطع غيار بانتظار الاعتماد</p>
+                <p className="p-6 text-sm text-[#6b6b6b]">{t('Aucune dépense de pièces en attente de validation')}</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold">
-                      <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">من</th>
-                      <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الطلب</th>
-                      <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">القطعة</th>
-                      <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">المبلغ</th>
+                      <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('De')}</th>
+                      <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Commande')}</th>
+                      <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Pièce')}</th>
+                      <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Montant')}</th>
                       <th className="px-5 py-3 border-b border-[#e5e5e5]"></th>
                     </tr>
                   </thead>
@@ -97,14 +99,15 @@ export default function ExpensesApproval() {
                         </td>
                         <td className="px-5 py-3.5 border-b border-[#ececE4]">{e.item_name}</td>
                         <td className="px-5 py-3.5 border-b border-[#ececE4] font-bold">
-                          {(e.purchase_price * e.quantity).toFixed(2)} د.ت
+                          {(e.purchase_price * e.quantity).toFixed(2)}  {t('DT')}
                         </td>
                         <td className="px-5 py-3.5 border-b border-[#ececE4]">
                           <button
                             onClick={() => approve('repair_expenses', e.id)}
                             className="bg-[#1f8a4c] text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:opacity-90"
                           >
-                            اعتماد
+                            
+                            {t('Valider')}
                           </button>
                         </td>
                       </tr>
@@ -116,17 +119,17 @@ export default function ExpensesApproval() {
           </div>
 
           <div>
-            <h3 className="text-xs font-bold text-[#e4211b] mb-3">مصاريف عامة</h3>
+            <h3 className="text-xs font-bold text-[#e4211b] mb-3">{t('Dépenses générales')}</h3>
             <div className="bg-white border border-[#e5e5e5] rounded-xl overflow-hidden">
               {generalExpenses.length === 0 ? (
-                <p className="p-6 text-sm text-[#6b6b6b]">لا يوجد مصاريف عامة بانتظار الاعتماد</p>
+                <p className="p-6 text-sm text-[#6b6b6b]">{t('Aucune dépense générale en attente de validation')}</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold">
-                      <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">من</th>
-                      <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">الوصف</th>
-                      <th className="text-right px-5 py-3 border-b border-[#e5e5e5]">المبلغ</th>
+                      <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('De')}</th>
+                      <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Description')}</th>
+                      <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Montant')}</th>
                       <th className="px-5 py-3 border-b border-[#e5e5e5]"></th>
                     </tr>
                   </thead>
@@ -136,14 +139,15 @@ export default function ExpensesApproval() {
                         <td className="px-5 py-3.5 border-b border-[#ececE4]">{e.profiles?.full_name}</td>
                         <td className="px-5 py-3.5 border-b border-[#ececE4]">{e.description}</td>
                         <td className="px-5 py-3.5 border-b border-[#ececE4] font-bold">
-                          {Number(e.amount).toFixed(2)} د.ت
+                          {Number(e.amount).toFixed(2)}  {t('DT')}
                         </td>
                         <td className="px-5 py-3.5 border-b border-[#ececE4]">
                           <button
                             onClick={() => approve('general_expenses', e.id)}
                             className="bg-[#1f8a4c] text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:opacity-90"
                           >
-                            اعتماد
+                            
+                            {t('Valider')}
                           </button>
                         </td>
                       </tr>

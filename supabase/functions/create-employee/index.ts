@@ -20,17 +20,21 @@ function cleanRole(r: unknown) {
 // returns { caller, callerRole } or a Response when not allowed
 async function requireAdmin(req: Request) {
   const authHeader = req.headers.get("Authorization")
-  if (!authHeader) return json({ error: "غير مصرح" }, 401)
+  if (!authHeader) return json({ error: 'Non autorisé' }, 401)
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
     global: { headers: { Authorization: authHeader } },
   })
   const { data: { user }, error } = await sb.auth.getUser()
-  if (error || !user) return json({ error: "غير مصرح" }, 401)
+  if (error || !user) return json({ error: 'Non autorisé' }, 401)
   const { data: p } = await sb.from("profiles").select("role").eq("id", user.id).single()
-  if (!p || !["admin", "super_admin"].includes(p.role)) return json({ error: "فقط الأدمن يقدر يعمل هذا" }, 403)
+  if (!p || !["admin", "super_admin"].includes(p.role)) return json({ error: 'Seul l\'administrateur peut faire cela' }, 403)
   return { caller: user, callerRole: p.role as string }
 }
-const admin = () => createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
+// your project stores the key under the secret name SERVICE_ROLE_KEY; the built-in name is also accepted
+const admin = () => createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  (Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"))!,
+)
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors })
@@ -45,11 +49,11 @@ serve(async (req) => {
     const phone = String(b.phone ?? "").trim() || null
     const role = cleanRole(b.role)
 
-    if (!email || !password || !full_name) return json({ error: "بيانات ناقصة" }, 400)
-    if (!role) return json({ error: "الدور غير صالح: " + String(b.role) }, 400)
-    if (password.length < 6) return json({ error: "كلمة السر لازم 6 أحرف على الأقل" }, 400)
+    if (!email || !password || !full_name) return json({ error: 'Données manquantes' }, 400)
+    if (!role) return json({ error: 'Rôle invalide : ' + String(b.role) }, 400)
+    if (password.length < 6) return json({ error: 'Le mot de passe doit contenir au moins 6 caractères' }, 400)
     if (role === "admin" && g.callerRole !== "super_admin")
-      return json({ error: "فقط Super Admin يقدر يضيف حساب admin" }, 403)
+      return json({ error: 'Seul le Super Admin peut ajouter un compte admin' }, 403)
 
     const sa = admin()
     const { data: created, error: cErr } = await sa.auth.admin.createUser({

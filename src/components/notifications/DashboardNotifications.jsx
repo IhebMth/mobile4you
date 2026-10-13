@@ -1,4 +1,5 @@
 import { useNotifications } from '../../context/NotificationContext'
+import { t } from '../../i18n/LanguageContext'
 
 // Shown by ProtectedLayout at the top of the three dashboards (/comptoir, /technicien, /admin).
 export default function DashboardNotifications() {
@@ -8,8 +9,8 @@ export default function DashboardNotifications() {
   return (
     <div className="bg-white border border-[#f0d9b8] rounded-xl mb-4 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2.5 bg-[#fff8f0]">
-        <b className="text-sm">🔔 جديد ({unread})</b>
-        <button onClick={markAll} className="text-xs text-[#b3170f] font-semibold">تعيين الكل كمقروء</button>
+        <b className="text-sm">{t('🔔 Nouveau (')}{unread})</b>
+        <button onClick={markAll} className="text-xs text-[#b3170f] font-semibold">{t('Tout marquer comme lu')}</button>
       </div>
       {list.map((n) => (
         <button key={n.id} onClick={() => go(n)}
@@ -17,7 +18,7 @@ export default function DashboardNotifications() {
           <b>{n.title}</b> — <span className="text-[#555]">{n.message}</span>
         </button>
       ))}
-      {unread > 5 && <p className="px-4 py-2 text-xs text-[#6b6b6b] border-t border-[#f3eadb]">+ {unread - 5} أخرى في الجرس</p>}
+      {unread > 5 && <p className="px-4 py-2 text-xs text-[#6b6b6b] border-t border-[#f3eadb]">+ {unread - 5}  {t('autres dans la cloche')}</p>}
     </div>
   )
 }

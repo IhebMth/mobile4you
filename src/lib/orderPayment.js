@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n/LanguageContext'
 // Payment + pickup helpers for the comptoir screens.
 // The app never sets repair_orders.is_paid. Payment is derived like this:
 //   not delivered yet            -> 'pending'  (the client pays at pickup)
@@ -17,5 +18,5 @@ export function paymentOf(order) {
 export function formatEta(iso) {
   if (!iso) return null
   const d = new Date(iso)
-  return d.toLocaleString('fr-TN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleString(getLocale(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
