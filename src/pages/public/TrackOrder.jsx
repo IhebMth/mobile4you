@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { SHOP } from '../../lib/shopConfig'
+import CornerTools from '../../components/ui/CornerTools'
 import { t, getLocale } from '../../i18n/LanguageContext'
 
 // Public page (no login). Opened by the client scanning the QR on the receipt.
@@ -75,7 +76,8 @@ export default function TrackOrder() {
   }
 
   const shell = (children) => (
-    <div dir="ltr" className="min-h-screen bg-[#faf9f5] flex justify-center px-4 py-8">
+    <div dir="ltr" className="relative min-h-screen bg-[#faf9f5] flex justify-center px-4 py-8">
+      <CornerTools />
       <div className="w-full max-w-md">
         <p className="text-center text-sm font-extrabold tracking-wide text-[#e4211b] mb-5">{SHOP.name}</p>
         {children}

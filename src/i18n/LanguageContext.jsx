@@ -1,7 +1,7 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo } from 'react'
 import en from './en'
-
-/* eslint-disable react-refresh/only-export-components */
+import { supabase } from '../lib/supabaseClient'
 
 // Two languages: French (default) and English.
 // The KEY of every text is its French wording, so:
@@ -51,9 +51,29 @@ export function t(key, vars) {
   return text
 }
 
-export function setLang(next) {
+// Notifications are translated by the database (columns title_fr / title_en / message_fr / message_en).
+// This picks the one for the language in use; old rows without a translation show the original text.
+export function notifTitle(n) {
+  return (current === 'en' ? n.title_en : n.title_fr) || n.title_fr || n.title || ''
+}
+export function notifMessage(n) {
+  return (current === 'en' ? n.message_en : n.message_fr) || n.message_fr || n.message || ''
+}
+
+// Remember the language in the person's profile too, so the PHONE notifications arrive in it.
+export async function saveLangToProfile(lang) {
+  try {
+    await Promise.race([
+      supabase.rpc('set_my_lang', { p_lang: lang }),
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+    ])
+  } catch { /* not signed in, or offline: the phone keeps its last language */ }
+}
+
+export async function setLang(next) {
   if (!LANGUAGES.includes(next) || next === current) return
   try { localStorage.setItem(STORAGE_KEY, next) } catch { /* ignore */ }
+  await saveLangToProfile(next)
   window.location.reload()
 }
 

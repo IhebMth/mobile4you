@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from './AuthContext'
 import { registerSW, syncPush } from '../lib/push'
+import { getLang, saveLangToProfile, notifTitle, notifMessage } from '../i18n/LanguageContext'
 
 // One live connection for the whole app: last 50 notifications + realtime inserts,
 // toast + beep, tab-title counter, app-icon badge.
@@ -54,6 +55,7 @@ export function NotificationProvider({ children }) {
     if (!user) { setItems([]); return }
     load()
     syncPush().catch(() => {})
+    saveLangToProfile(getLang()) // the phone alerts follow the language this device uses
     const ch = supabase.channel('notifs-' + user.id)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, ({ new: n }) => {
         setItems((p) => (p.some((x) => x.id === n.id) ? p : [n, ...p].slice(0, 50)))
@@ -100,8 +102,8 @@ export function NotificationProvider({ children }) {
       {toast && (
         <button onClick={() => go(toast)}
           className="fixed top-3 left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-[60] text-start bg-[#1a1a1a] text-white rounded-xl shadow-2xl px-4 py-3 border-s-4 border-[#e4211b]">
-          <div className="text-sm font-bold">{toast.title}</div>
-          <div className="text-[13px] opacity-80 mt-0.5">{toast.message}</div>
+          <div className="text-sm font-bold">{notifTitle(toast)}</div>
+          <div className="text-[13px] opacity-80 mt-0.5">{notifMessage(toast)}</div>
         </button>
       )}
     </Ctx.Provider>

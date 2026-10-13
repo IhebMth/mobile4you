@@ -1,5 +1,5 @@
 import { useNotifications } from '../../context/NotificationContext'
-import { t } from '../../i18n/LanguageContext'
+import { t, notifTitle, notifMessage } from '../../i18n/LanguageContext'
 
 // Shown by ProtectedLayout at the top of the three dashboards (/comptoir, /technicien, /admin).
 export default function DashboardNotifications() {
@@ -15,7 +15,7 @@ export default function DashboardNotifications() {
       {list.map((n) => (
         <button key={n.id} onClick={() => go(n)}
           className="w-full text-start px-4 py-2.5 border-t border-[#f3eadb] text-[13px]">
-          <b>{n.title}</b> — <span className="text-[#555]">{n.message}</span>
+          <b>{notifTitle(n)}</b> — <span className="text-[#555]">{notifMessage(n)}</span>
         </button>
       ))}
       {unread > 5 && <p className="px-4 py-2 text-xs text-[#6b6b6b] border-t border-[#f3eadb]">+ {unread - 5}  {t('autres dans la cloche')}</p>}

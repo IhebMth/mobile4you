@@ -60,11 +60,24 @@ Deno.serve(async (req) => {
   if (!userIds.length) return new Response('no recipients')
 
   const { data: subs } = await db.from('push_subscriptions').select('*').in('user_id', userIds)
-  const payload = JSON.stringify({ title: n.title, body: n.message, url: n.link_path || '/', tag: n.id })
+
+  // each person gets the text in HIS language (profiles.lang, saved by the app; French by default).
+  // Script S fills title_fr / title_en / message_fr / message_en; the Arabic original is the fallback.
+  const { data: people } = await db.from('profiles').select('id, lang').in('id', userIds)
+  const langOf = new Map((people ?? []).map((p: { id: string; lang: string | null }) => [p.id, p.lang === 'en' ? 'en' : 'fr']))
+  const payloadFor = (lang: string) => JSON.stringify({
+    title: (lang === 'en' ? n.title_en : n.title_fr) || n.title_fr || n.title,
+    body: (lang === 'en' ? n.message_en : n.message_fr) || n.message_fr || n.message,
+    url: n.link_path || '/',
+    tag: n.id,
+  })
 
   await Promise.all((subs ?? []).map(async (s: any) => {
     try {
-      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload)
+      await webpush.sendNotification(
+        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        payloadFor(langOf.get(s.user_id) ?? 'fr'),
+      )
     } catch (e: any) {
       // 404 / 410 = the phone removed the subscription: forget it. Anything else is written to the logs.
       if (e.statusCode === 404 || e.statusCode === 410) await db.from('push_subscriptions').delete().eq('id', s.id)

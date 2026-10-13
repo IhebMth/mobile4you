@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNotifications } from '../../context/NotificationContext'
 import { pushState, enablePush } from '../../lib/push'
-import { t } from '../../i18n/LanguageContext'
+import { t, notifTitle, notifMessage } from '../../i18n/LanguageContext'
 
 // type -> emoji
 const ICON = {
@@ -232,10 +232,10 @@ export default function NotificationBell({ onDark = false }) {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-start justify-between gap-2">
-                          <span className={`text-[13.5px] leading-snug ${n.is_read ? 'font-semibold text-[#3a3a3a]' : 'font-extrabold text-[#111]'}`}>{n.title}</span>
+                          <span className={`text-[13.5px] leading-snug ${n.is_read ? 'font-semibold text-[#3a3a3a]' : 'font-extrabold text-[#111]'}`}>{notifTitle(n)}</span>
                           <span className="text-[11px] text-[#9a9a9a] whitespace-nowrap mt-0.5">{ago(n.created_at)}</span>
                         </span>
-                        <span className="block text-[12.5px] text-[#666] mt-0.5 leading-snug line-clamp-2 break-words">{n.message}</span>
+                        <span className="block text-[12.5px] text-[#666] mt-0.5 leading-snug line-clamp-2 break-words">{notifMessage(n)}</span>
                       </span>
                       {!n.is_read && <span className="w-2.5 h-2.5 rounded-full bg-[#e4211b] mt-1.5 shrink-0" aria-label={t('Neuf')} />}
                     </button>

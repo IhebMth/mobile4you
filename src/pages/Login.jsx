@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n/LanguageContext'
-import LanguageSwitcher from '../components/ui/LanguageSwitcher'
+import CornerTools from '../components/ui/CornerTools'
 import logo from '../assets/logo.png'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -142,7 +142,7 @@ export default function Login() {
 
   return (
     <div className="relative min-h-screen bg-gradient-to-b from-[#fbfaf6] to-[#f0efe9] flex items-center justify-center px-4 py-8">
-      <div className="absolute top-4 right-4"><LanguageSwitcher /></div>
+      <CornerTools />
       <form onSubmit={handleLogin} className="bg-white border border-[#e8e6df] rounded-3xl p-6 sm:p-9 w-full max-w-[400px] shadow-[0_8px_30px_rgba(0,0,0,0.05)]">
         <div className="flex flex-col items-center mb-8">
           <img src={logo} alt="Mobile 4 You" className="w-16 h-16 rounded-2xl object-cover mb-3 ring-4 ring-[#f4f2ec]" />

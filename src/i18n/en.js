@@ -647,6 +647,8 @@ const en = {
   "à l'heure": "at",
   "Commande verrouillée": "Order locked",
   "Vous ne pouvez pas changer le statut.": "You cannot change the status.",
+  "Passer en mode clair": "Switch to light mode",
+  "Passer en mode sombre": "Switch to dark mode",
 }
 
 export default en

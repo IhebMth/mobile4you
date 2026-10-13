@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,6 +11,23 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Mobile 4 You" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- dark mode: applied before the page is drawn, so there is no white flash (see src/lib/theme.js) -->
+    <script>
+      (function () {
+        try {
+          var s = localStorage.getItem('m4u-theme');
+          var dark = s ? s === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#121212');
+          }
+          var l = localStorage.getItem('m4u-lang');
+          document.documentElement.lang = l === 'en' ? 'en' : 'fr';
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,0 +1,111 @@
+/* Dark mode. Generated from the colours used in the app (see the comment at the end).
+   Everything is scoped under html.dark, so the light theme is not touched at all. */
+html.dark { color-scheme: dark; }
+html.dark body { background-color: #121212; color: #ececec; }
+.dark ::placeholder { color: #7d7d7d; opacity: 1; }
+.dark input:where(:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color])),
+.dark select, .dark textarea { background-color: #1b1b1b; color: #ececec; border-color: #3a3a3a; }
+.dark option { background-color: #1c1c1c; color: #ececec; }
+.dark hr { border-color: #2f2f2f; }
+.dark .shadow-xl, .dark .shadow-2xl { --tw-shadow-color: rgba(0,0,0,.6); }
+.dark .text-green-700 { color: #7ae1a5 !important; }
+
+/* ---------- colours of the app, one line per class ---------- */
+.dark .text-\[\#6b6b6b\]{color:#b0b0b0!important}
+.dark .text-\[\#b3170f\]{color:#f26f68!important}
+.dark .border-\[\#e5e5e5\]{border-color:#3a3a3a!important}
+.dark .bg-white{background-color:#1c1c1c!important}
+.dark .bg-\[\#e8f6ee\]{background-color:#1b3225!important}
+.dark .text-\[\#1f8a4c\]{color:#7ae1a5!important}
+.dark .text-\[\#1a1a1a\]{color:#ececec!important}
+.dark .bg-\[\#faf9f5\]{background-color:#1a1a1a!important}
+.dark .bg-\[\#fff8e1\]{background-color:#322c1b!important}
+.dark .bg-\[\#1a1a1a\]{background-color:#2e2e2e!important}
+.dark .bg-\[\#fff4e0\]{background-color:#322a1b!important}
+.dark .text-\[\#b36b00\]{color:#f3bb68!important}
+.dark .bg-\[\#eaf1fe\]{background-color:#1b2332!important}
+.dark .text-\[\#2f6fed\]{color:#6997f2!important}
+.dark .text-\[\#e4211b\]{color:#ee716d!important}
+.dark .bg-\[\#eeeeee\]{background-color:#2a2a2a!important}
+.dark .text-\[\#5c6b6f\]{color:#a6b2b5!important}
+.dark .bg-\[\#fdecd8\]{background-color:#32271b!important}
+.dark .text-\[\#8a4f06\]{color:#f3b568!important}
+.dark .bg-\[\#e3f0e8\]{background-color:#1b3224!important}
+.dark .text-\[\#2b5940\]{color:#91caab!important}
+.dark .bg-\[\#e5eef6\]{background-color:#1b2732!important}
+.dark .text-\[\#204a6b\]{color:#81b3d9!important}
+.dark .bg-\[\#fdeaea\]{background-color:#321b1b!important}
+.dark .text-\[\#a13d3d\]{color:#d28989!important}
+.dark .hover\:text-\[\#1a1a1a\]:hover{color:#ececec!important}
+.dark .border-\[\#e2e0d8\]{border-color:#3a3a3a!important}
+.dark .bg-\[\#fdfdfb\]{background-color:#202020!important}
+.dark .text-\[\#8a8a8a\]{color:#949494!important}
+.dark .from-\[\#fbfaf6\]{background-image:none!important;background-color:#1e1e1e!important}
+.dark .border-\[\#e8e6df\]{border-color:#3a3a3a!important}
+.dark .hover\:bg-\[\#f3f1ea\]:hover{background-color:#2a2a2a!important}
+.dark .border-\[\#bdbdb5\]{border-color:#4a4a4a!important}
+.dark .bg-\[\#f3f1ea\]{background-color:#2a2a2a!important}
+.dark .bg-\[\#f7f7f7\]{background-color:#121212!important}
+.dark .from-\[\#1f1f1f\]{background-image:none!important;background-color:#1f1f1f!important}
+.dark .text-\[\#8d8d8d\]{color:#949494!important}
+.dark .text-\[\#6f6f6f\]{color:#b0b0b0!important}
+.dark .text-\[\#9a9a9a\]{color:#949494!important}
+.dark .text-\[\#777\]{color:#949494!important}
+.dark .bg-\[\#e8f0ff\]{background-color:#1b2332!important}
+.dark .bg-\[\#e6f6ec\]{background-color:#1b3223!important}
+.dark .bg-\[\#fff1da\]{background-color:#32291b!important}
+.dark .bg-\[\#f1e9ff\]{background-color:#231b32!important}
+.dark .bg-\[\#fff6cc\]{background-color:#322e1b!important}
+.dark .bg-\[\#f1f0ec\]{background-color:#2a2a2a!important}
+.dark .hover\:bg-\[\#faf9f5\]:hover{background-color:#1a1a1a!important}
+.dark .border-\[\#ece9e0\]{border-color:#635836!important}
+.dark .hover\:bg-\[\#fdeeee\]:hover{background-color:#321b1b!important}
+.dark .hover\:bg-\[\#f1f0ec\]:hover{background-color:#2a2a2a!important}
+.dark .text-\[\#7a7a7a\]{color:#949494!important}
+.dark .text-\[\#17692f\]{color:#79e298!important}
+.dark .bg-\[\#eaf7ee\]{background-color:#1b3222!important}
+.dark .bg-\[\#fff8e6\]{background-color:#322b1b!important}
+.dark .border-\[\#f0d58a\]{border-color:#635736!important}
+.dark .text-\[\#8a6d1d\]{color:#e3c678!important}
+.dark .bg-\[\#fdecea\]{background-color:#321d1b!important}
+.dark .text-\[\#444\]{color:#ececec!important}
+.dark .border-\[\#f0eee6\]{border-color:#2f2f2f!important}
+.dark .border-\[\#f4f2ec\]{border-color:#2f2f2f!important}
+.dark .active\:bg-\[\#f4f2ec\]:active{background-color:#2a2a2a!important}
+.dark .bg-\[\#fff7f2\]{background-color:#32241b!important}
+.dark .text-\[\#3a3a3a\]{color:#ececec!important}
+.dark .text-\[\#111\]{color:#ececec!important}
+.dark .text-\[\#666\]{color:#b0b0b0!important}
+.dark .border-\[\#f0d9b8\]{border-color:#635136!important}
+.dark .bg-\[\#fff8f0\]{background-color:#32271b!important}
+.dark .border-\[\#f3eadb\]{border-color:#635236!important}
+.dark .text-\[\#555\]{color:#b0b0b0!important}
+.dark .bg-\[\#f0efe9\]{background-color:#171717!important}
+.dark .ring-\[\#f4f2ec\]{--tw-ring-color:#2f2f2f!important}
+.dark .bg-\[\#f4f2ec\]{background-color:#2a2a2a!important}
+.dark .hover\:bg-\[\#fdecea\]:hover{background-color:#321d1b!important}
+.dark .hover\:bg-\[\#fbfaf6\]:hover{background-color:#1e1e1e!important}
+.dark .border-\[\#ececE4\]{border-color:#2f2f2f!important}
+.dark .text-\[\#c9750a\]{color:#f3b668!important}
+.dark .bg-\[\#fff4d6\]{background-color:#322c1b!important}
+.dark .text-\[\#8a6a1f\]{color:#e1c27a!important}
+.dark .border-\[\#f1f1f1\]{border-color:#2f2f2f!important}
+.dark .border-\[\#f3f3ee\]{border-color:#2f2f2f!important}
+.dark .hover\:text-\[\#e4211b\]:hover{color:#ee716d!important}
+.dark .divide-\[\#f0f0ea\] > :not(:last-child){border-color:#2f2f2f!important}
+.dark .bg-\[\#eefaf1\]{background-color:#1b3221!important}
+.dark .border-\[\#f0f0ea\]{border-color:#2f2f2f!important}
+.dark .hover\:bg-\[\#f7f7f7\]:hover{background-color:#121212!important}
+.dark .border-\[\#d8d8d0\]{border-color:#3a3a3a!important}
+.dark .active\:bg-\[\#fdeaea\]:active{background-color:#321b1b!important}
+.dark .hover\:border-\[\#bdbdb5\]:hover{border-color:#4a4a4a!important}
+.dark .border-\[\#eeece4\]{border-color:#2f2f2f!important}
+.dark .hover\:bg-\[\#fdeaea\]:hover{background-color:#321b1b!important}
+.dark .bg-\[\#fffaf0\]{background-color:#322a1b!important}
+.dark .border-\[\#f1e3bf\]{border-color:#635736!important}
+
+/* ---------- receipts and labels must stay black on white, also when printing from dark mode ---------- */
+@media print {
+  html.dark, html.dark body { background: #fff !important; color: #000 !important; }
+  html.dark #print-root, html.dark #print-root * { color: #000 !important; background-color: transparent !important; border-color: #000 !important; }
+}

@@ -1,12 +1,12 @@
 import logo from '../../assets/logo.png'
-import LanguageSwitcher from '../ui/LanguageSwitcher'
+import CornerTools from '../ui/CornerTools'
 
 // Page frame shared by the login / forgot-password / reset-password screens.
 // Mobile first: full-width card with comfortable padding, centered on bigger screens.
 export default function AuthShell({ title, subtitle, children, footer }) {
   return (
     <div className="relative min-h-screen bg-linear-to-b from-[#fbfaf6] to-[#f0efe9] flex flex-col items-center justify-center px-4 py-8">
-      <div className="absolute top-4 right-4"><LanguageSwitcher /></div>
+      <CornerTools />
       <div className="w-full max-w-100">
         <div className="flex flex-col items-center mb-6">
           <img src={logo} alt="Mobile 4 You" className="w-16 h-16 rounded-2xl object-cover shadow-sm ring-4 ring-white" />
