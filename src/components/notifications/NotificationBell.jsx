@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNotifications } from '../../context/NotificationContext'
 import { pushState, enablePush } from '../../lib/push'
-import { t, notifTitle, notifMessage } from '../../i18n/LanguageContext'
+import { t, notifTitle, notifMessage, getDir } from '../../i18n/LanguageContext'
 
 // type -> emoji
 const ICON = {
@@ -134,14 +134,14 @@ export default function NotificationBell({ onDark = false }) {
           <BellIcon filled={unread > 0} />
         </span>
         {unread > 0 && (
-          <span className={`absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#e4211b] text-white text-[11px] font-extrabold leading-none flex items-center justify-center ring-2 ${onDark ? 'ring-[#1a1a1a]' : 'ring-white'}`}>
+          <span className={`absolute -top-1 -end-1 min-w-[20px] h-5 px-1.5 rounded-full bg-[#e4211b] text-white text-[11px] font-extrabold leading-none flex items-center justify-center ring-2 ${onDark ? 'ring-[#1a1a1a]' : 'ring-white'}`}>
             {unread > 99 ? '99+' : unread}
           </span>
         )}
       </button>
 
       {open && pos && createPortal(
-        <div className="fixed inset-0 z-[70]" dir="ltr">
+        <div className="fixed inset-0 z-[70]" dir={getDir()}>
           {/* dim on phones, invisible click-catcher on desktop */}
           <div className="absolute inset-0 bg-black/35 lg:bg-transparent" onClick={() => setOpen(false)} />
 
@@ -225,7 +225,7 @@ export default function NotificationBell({ onDark = false }) {
                     <button
                       key={n.id}
                       onClick={() => { setOpen(false); go(n) }}
-                      className={`w-full flex items-start gap-3 text-left px-4 py-3 border-b border-[#f4f2ec] transition hover:bg-[#faf9f5] active:bg-[#f4f2ec] ${n.is_read ? '' : 'bg-[#fff7f2]'}`}
+                      className={`w-full flex items-start gap-3 text-start px-4 py-3 border-b border-[#f4f2ec] transition hover:bg-[#faf9f5] active:bg-[#f4f2ec] ${n.is_read ? '' : 'bg-[#fff7f2]'}`}
                     >
                       <span className={`w-10 h-10 rounded-xl flex items-center justify-center text-[18px] shrink-0 ${TONE[GROUP[n.type] || 'other']}`}>
                         {ICON[n.type] || '🔔'}

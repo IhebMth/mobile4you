@@ -5,9 +5,9 @@ import CornerTools from '../ui/CornerTools'
 // Mobile first: full-width card with comfortable padding, centered on bigger screens.
 export default function AuthShell({ title, subtitle, children, footer }) {
   return (
-    <div className="relative min-h-screen bg-linear-to-b from-[#fbfaf6] to-[#f0efe9] flex flex-col items-center justify-center px-4 py-8">
+    <div className="relative min-h-screen bg-gradient-to-b from-[#fbfaf6] to-[#f0efe9] flex flex-col items-center justify-center px-4 py-8">
       <CornerTools />
-      <div className="w-full max-w-100">
+      <div className="w-full max-w-[400px]">
         <div className="flex flex-col items-center mb-6">
           <img src={logo} alt="Mobile 4 You" className="w-16 h-16 rounded-2xl object-cover shadow-sm ring-4 ring-white" />
           <p className="mt-3 text-[13px] font-extrabold tracking-[0.2em] text-[#1a1a1a]">MOBILE 4 YOU</p>

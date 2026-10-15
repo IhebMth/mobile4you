@@ -22,11 +22,11 @@ export default function ScanFab() {
   return (
     <>
       <button onClick={() => setOpen(true)} aria-label={t('Scanner un code QR')}
-        className="no-print fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-[#e4211b] text-white text-2xl shadow-lg active:scale-95 transition">
+        className="no-print fixed bottom-5 end-5 z-40 w-14 h-14 rounded-full bg-[#e4211b] text-white text-2xl shadow-lg active:scale-95 transition">
         📷
       </button>
       {toast && (
-        <div className="no-print fixed bottom-24 right-5 z-40 bg-[#1a1a1a] text-white text-sm rounded-lg px-4 py-2.5 shadow-lg">{toast}</div>
+        <div className="no-print fixed bottom-24 end-5 z-40 bg-[#1a1a1a] text-white text-sm rounded-lg px-4 py-2.5 shadow-lg">{toast}</div>
       )}
       {open && <ScanDialog onResult={handleResult} onClose={() => setOpen(false)} />}
     </>

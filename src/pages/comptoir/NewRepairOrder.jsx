@@ -25,8 +25,8 @@ export default function NewRepairOrder() {
     async function loadTechnicians() {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name')
-        .eq('role', 'technicien')
+        .select('id, full_name, role')
+        .in('role', ['technicien', 'admin'])
         .order('full_name')
 
       if (error) {
@@ -140,8 +140,8 @@ export default function NewRepairOrder() {
           <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">{t('Technicien assigné')}</label>
           <select value={technicianId} onChange={(e) => setTechnicianId(e.target.value)} className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]" required>
             <option value="">{t('-- Choisir un technicien --')}</option>
-            {technicians.map((t) => (
-              <option key={t.id} value={t.id}>{t.full_name}</option>
+            {technicians.map((tc) => (
+              <option key={tc.id} value={tc.id}>{tc.full_name}{tc.id === user.id ? ' (' + t('Moi') + ')' : tc.role === 'admin' ? ' · Admin' : ''}</option>
             ))}
           </select>
           {technicians.length === 0 && (

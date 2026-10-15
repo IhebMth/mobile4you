@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import QrCode from './QrCode'
 import logo from '../../assets/logo.png'
 import { SHOP, trackUrl, scanUrl } from '../../lib/shopConfig'
-import { t, getLocale } from '../../i18n/LanguageContext'
+import { t, getLocale, getDir } from '../../i18n/LanguageContext'
 
 // order = { order_number, access_token, device_model, issue_description,
 //           price_min, price_max, created_at, client_name }
@@ -56,7 +56,7 @@ export default function PrintOrderDialog({ order, onClose }) {
 
       {/* ---------- print-only area (portal to <body>; #root is hidden while printing) ---------- */}
       {createPortal(
-        <div id="print-root" data-mode={mode} dir="ltr">
+        <div id="print-root" data-mode={mode} dir={getDir()}>
           <style>{`
             #print-root { display: none; }
             @media print {
@@ -77,7 +77,7 @@ export default function PrintOrderDialog({ order, onClose }) {
               .receipt .order .lbl { font-size: 8pt; }
               .receipt .order .num { font-size: 14pt; font-weight: 800; direction: ltr; letter-spacing: .5px; }
               .receipt .order .dt { font-size: 8.5pt; direction: ltr; }
-              .receipt .info { width: 100%; border-collapse: collapse; text-align: left; font-size: 10pt; }
+              .receipt .info { width: 100%; border-collapse: collapse; text-align: start; font-size: 10pt; }
               .receipt .info td { padding: 1.3mm 0; border-bottom: .2mm dashed #777; vertical-align: top; }
               .receipt .info td:first-child { width: 22%; font-weight: 800; font-size: 9pt; white-space: nowrap; }
               .receipt .est { margin-top: 3mm; border: .4mm dashed #000; border-radius: 2.5mm; padding: 2mm; }
@@ -90,7 +90,7 @@ export default function PrintOrderDialog({ order, onClose }) {
               .receipt .foot { margin-top: 3.5mm; padding-top: 2mm; border-top: .2mm dashed #777; font-size: 8pt; line-height: 1.4; }
 
               .sticker { width: 50mm; height: 30mm; display: flex; align-items: center; gap: 2mm; padding: 1.5mm; box-sizing: border-box; overflow: hidden; }
-              .sticker .t { font-size: 9pt; line-height: 1.25; text-align: left; min-width: 0; }
+              .sticker .t { font-size: 9pt; line-height: 1.25; text-align: start; min-width: 0; }
               .sticker .n { font-size: 10pt; font-weight: 800; direction: ltr; }
               .sticker .s { font-size: 7pt; font-weight: 700; margin-top: 1mm; }
             }

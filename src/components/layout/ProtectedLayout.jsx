@@ -43,7 +43,7 @@ export default function ProtectedRoute({ allowedRoles }) {
         <HeaderTools onDark />
         <button
           onClick={() => setSidebarOpen(true)}
-          className="p-2 -mr-2 ml-1"
+          className="p-2 -me-2 ms-1"
           aria-label={t('Ouvrir le menu')}
         >
           <span className="block w-6 h-0.5 bg-white mb-1.5"></span>
@@ -56,7 +56,7 @@ export default function ProtectedRoute({ allowedRoles }) {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* p-4 on phones, p-6 on tablets, p-10 + max width on desktop, same as before */}
-      <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-10 lg:max-w-295">
+      <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-10 lg:max-w-[1180px]">
         {/* language switch + notification bell on desktop (the phone has them in the top bar above) */}
         <div className="hidden lg:flex justify-end mb-4">
           <HeaderTools />

@@ -4,7 +4,7 @@ import QrCode from './QrCode'
 import { SHOP, productUrl } from '../../lib/shopConfig'
 import { phoneOf } from '../../lib/phoneDetails'
 import { colorLabel } from '../../lib/productColors'
-import { t } from '../../i18n/LanguageContext'
+import { t, getDir } from '../../i18n/LanguageContext'
 
 // Prints the QR label for a stock item (phone or accessory). Scanning it in the app opens the item:
 // comptoir -> the sale dialog is already open, admin -> the edit sheet.
@@ -47,7 +47,7 @@ export default function LabelPrintDialog({ item, onClose }) {
           <div className="flex justify-center mb-4">
             <div className="border border-dashed border-[#bdbdb5] rounded-lg p-2 bg-white flex items-center gap-2 w-[250px] h-[150px]">
               <QrCode value={productUrl(item.id)} size={90} />
-              <div className="min-w-0 text-left">
+              <div className="min-w-0 text-start">
                 <p className="text-xs font-extrabold leading-tight line-clamp-3">{item.name}</p>
                 {item.color && <p className="text-[11px] text-[#6b6b6b]">{colorLabel(item.color)}</p>}
                 {showPrice && <p className="text-sm font-extrabold mt-1">{Number(item.sale_price).toFixed(2).replace(/\.00$/, '')}  {t('DT')}</p>}
@@ -85,7 +85,7 @@ export default function LabelPrintDialog({ item, onClose }) {
       </div>
 
       {createPortal(
-        <div id="label-root" dir="ltr">
+        <div id="label-root" dir={getDir()}>
           <style>{`
             #label-root { display: none; }
             @media print {
@@ -96,10 +96,10 @@ export default function LabelPrintDialog({ item, onClose }) {
                 ? '@page { size: 50mm 30mm; margin: 0; } .label { page-break-after: always; break-after: page; }'
                 : '@page { size: A4; margin: 8mm; } #label-root { display: flex !important; flex-wrap: wrap; gap: 2mm; align-content: flex-start; } .label { outline: .2mm dashed #999; }'}
               .label { width: 50mm; height: 30mm; box-sizing: border-box; display: flex; align-items: center; gap: 1.5mm; padding: 1.5mm; overflow: hidden; }
-              .label .t { min-width: 0; text-align: left; line-height: 1.2; }
+              .label .t { min-width: 0; text-align: start; line-height: 1.2; }
               .label .nm { font-size: 8pt; font-weight: 800; max-height: 3.6em; overflow: hidden; }
               .label .cl { font-size: 7pt; }
-              .label .im { font-size: 6pt; direction: ltr; text-align: left; }
+              .label .im { font-size: 6pt; direction: ltr; text-align: start; }
               .label .pr { font-size: 11pt; font-weight: 800; margin-top: .8mm; }
               .label .sh { font-size: 5.5pt; margin-top: .5mm; }
             }

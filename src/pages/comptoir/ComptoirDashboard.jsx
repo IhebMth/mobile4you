@@ -59,24 +59,17 @@ export default function ComptoirDashboard() {
   async function loadTechnicians() {
     const { data } = await supabase
       .from('profiles')
-      .select('id, full_name')
-      .eq('role', 'technicien')
+      .select('id, full_name, role')
+      .in('role', ['technicien', 'admin'])
       .order('full_name')
     setTechnicians(data || [])
   }
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      await loadOrders()
-      await loadTechnicians()
-    }
-
-    void fetchDashboardData()
-
+    loadOrders()
+    loadTechnicians()
     // refresh every 30s so "the client will come" (from the QR page) shows up without reloading
-    const t = setInterval(() => {
-      void loadOrders()
-    }, 30000)
+    const t = setInterval(loadOrders, 30000)
     return () => clearInterval(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -304,7 +297,7 @@ export default function ComptoirDashboard() {
               <button
                 key={o.id}
                 onClick={() => openModal(o)}
-                className="text-left bg-white border border-[#e5e5e5] rounded-xl p-4 hover:bg-[#fbfaf6]"
+                className="text-start bg-white border border-[#e5e5e5] rounded-xl p-4 hover:bg-[#fbfaf6]"
               >
                 <div className="flex justify-between items-start gap-3 mb-2">
                   <span className="font-bold text-[#b3170f] text-sm" dir="ltr">
@@ -337,12 +330,12 @@ export default function ComptoirDashboard() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold">
-                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('N° de commande')}</th>
-                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Client')}</th>
-                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Appareil')}</th>
-                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Statut')}</th>
-                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Prix')}</th>
-                  <th className="text-left px-5 py-3 border-b border-[#e5e5e5]">{t('Date')}</th>
+                  <th className="text-start px-5 py-3 border-b border-[#e5e5e5]">{t('N° de commande')}</th>
+                  <th className="text-start px-5 py-3 border-b border-[#e5e5e5]">{t('Client')}</th>
+                  <th className="text-start px-5 py-3 border-b border-[#e5e5e5]">{t('Appareil')}</th>
+                  <th className="text-start px-5 py-3 border-b border-[#e5e5e5]">{t('Statut')}</th>
+                  <th className="text-start px-5 py-3 border-b border-[#e5e5e5]">{t('Prix')}</th>
+                  <th className="text-start px-5 py-3 border-b border-[#e5e5e5]">{t('Date')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -483,8 +476,8 @@ export default function ComptoirDashboard() {
                 className="w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm"
               >
                 <option value="">{t('-- Choisir un technicien --')}</option>
-                {technicians.map((t) => (
-                  <option key={t.id} value={t.id}>{t.full_name}</option>
+                {technicians.map((tc) => (
+                  <option key={tc.id} value={tc.id}>{tc.full_name}{tc.id === user.id ? ' (' + t('Moi') + ')' : tc.role === 'admin' ? ' · Admin' : ''}</option>
                 ))}
               </select>
             </div>
@@ -508,7 +501,7 @@ export default function ComptoirDashboard() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#faf9f5] rounded-lg p-3">
                   <div>
                     <span className="font-bold text-[#1a1a1a]">{selectedOrder.final_price}  {t('DT')}</span>
-                    <span className={`text-xs mr-2 ${selectedOrder.price_confirmed ? 'text-green-700' : 'text-[#b3170f]'}`}>
+                    <span className={`text-xs me-2 ${selectedOrder.price_confirmed ? 'text-green-700' : 'text-[#b3170f]'}`}>
                       {selectedOrder.price_confirmed ? t('✔ Confirmé') : t('● Pas encore confirmé')}
                     </span>
                   </div>

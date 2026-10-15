@@ -5,7 +5,7 @@ import ThemeToggle from './ThemeToggle'
 // The page around it must have className "relative".
 export default function CornerTools() {
   return (
-    <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+    <div className="absolute top-4 end-4 z-10 flex items-center gap-2">
       <LanguageSwitcher />
       <ThemeToggle />
     </div>

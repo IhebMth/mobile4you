@@ -1,9 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo } from 'react'
 import en from './en'
+import ar from './ar'
 import { supabase } from '../lib/supabaseClient'
 
-// Two languages: French (default) and English.
+// Three languages: French (default), English and Arabic (right to left).
 // The KEY of every text is its French wording, so:
 //   t('Commandes')                       -> "Commandes" (fr)  /  "Orders" (en)
 //   t('il y a {m} min', { m: 5 })        -> "il y a 5 min"    /  "5 min ago"
@@ -16,9 +17,9 @@ import { supabase } from '../lib/supabaseClient'
 // at the top of files — is rebuilt in the new language. The choice is saved on the device.
 
 const STORAGE_KEY = 'm4u-lang'
-export const LANGUAGES = ['fr', 'en']
-const DICTIONARIES = { fr: {}, en }
-const LOCALES = { fr: 'fr-FR', en: 'en-GB' }
+export const LANGUAGES = ['fr', 'en', 'ar']
+const DICTIONARIES = { fr: {}, en, ar }
+const LOCALES = { fr: 'fr-FR', en: 'en-GB', ar: 'ar-TN' }
 
 function readSavedLang() {
   try {
@@ -30,13 +31,17 @@ function readSavedLang() {
 
 // read once when the app loads (before any page code runs)
 const current = readSavedLang()
+// Arabic reads right to left: the whole page is mirrored (menu, tables, arrows). French and English: left to right.
+const DIR = current === 'ar' ? 'rtl' : 'ltr'
 if (typeof document !== 'undefined') {
   document.documentElement.lang = current
-  document.documentElement.dir = 'ltr' // French and English both read left to right
+  document.documentElement.dir = DIR
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function getLang() { return current }
 export function getLocale() { return LOCALES[current] }
+export function getDir() { return DIR }
 
 export function t(key, vars) {
   if (key == null) return ''
@@ -53,10 +58,13 @@ export function t(key, vars) {
 
 // Notifications are translated by the database (columns title_fr / title_en / message_fr / message_en).
 // This picks the one for the language in use; old rows without a translation show the original text.
+// Arabic is the text the database triggers write, so it is shown as it is.
 export function notifTitle(n) {
+  if (current === 'ar') return n.title || n.title_fr || ''
   return (current === 'en' ? n.title_en : n.title_fr) || n.title_fr || n.title || ''
 }
 export function notifMessage(n) {
+  if (current === 'ar') return n.message || n.message_fr || ''
   return (current === 'en' ? n.message_en : n.message_fr) || n.message_fr || n.message || ''
 }
 
@@ -77,17 +85,19 @@ export async function setLang(next) {
   window.location.reload()
 }
 
-const LanguageContext = createContext({ lang: 'fr', setLang, t, locale: 'fr-FR' })
+const LanguageContext = createContext({ lang: 'fr', dir: 'ltr', setLang, t, locale: 'fr-FR' })
 
 export function LanguageProvider({ children }) {
   useEffect(() => {
     document.documentElement.lang = current
+    document.documentElement.dir = DIR
   }, [])
-  const value = useMemo(() => ({ lang: current, setLang, t, locale: LOCALES[current] }), [])
+  const value = useMemo(() => ({ lang: current, dir: DIR, setLang, t, locale: LOCALES[current] }), [])
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
 }
 
-// const { t, lang, locale, setLang } = useI18n()   (same t as the one you can import directly)
+// const { t, lang, dir, locale, setLang } = useI18n()   (same t as the one you can import directly)
+// eslint-disable-next-line react-refresh/only-export-components
 export function useI18n() {
   return useContext(LanguageContext)
 }

@@ -16,14 +16,14 @@ export default function PasswordField({ label, value, onChange, autoComplete = '
           placeholder={placeholder}
           required={required}
           dir="ltr"
-          className="w-full h-12 px-4 pr-12 border border-[#e2e0d8] rounded-xl text-base bg-[#fdfdfb] focus:outline-none focus:border-[#e4211b] focus:ring-4 focus:ring-[#e4211b]/10 transition"
+          className="w-full h-12 px-4 pe-12 border border-[#e2e0d8] rounded-xl text-base bg-[#fdfdfb] focus:outline-none focus:border-[#e4211b] focus:ring-4 focus:ring-[#e4211b]/10 transition"
         />
         <button
           type="button"
           onClick={() => setShow((v) => !v)}
           tabIndex={-1}
           aria-label={show ? t('Masquer') : t('Afficher')}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-lg text-[#6b6b6b] hover:text-[#1a1a1a]"
+          className="absolute end-1.5 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-lg text-[#6b6b6b] hover:text-[#1a1a1a]"
         >
           {show ? '🙈' : '👁️'}
         </button>

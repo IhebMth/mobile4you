@@ -35,6 +35,11 @@ const NAV_BY_ROLE = {
     ] },
   ],
   admin: [
+    { title: 'Travail quotidien', items: [
+      { to: '/comptoir', label: 'Commandes', icon: '📋' },
+      { to: '/comptoir/new-order', label: 'Réception d\'un nouvel appareil', icon: '📱' },
+      { to: '/technicien', label: 'Mes appareils', icon: '🔧' },
+    ] },
     { title: 'Accueil', items: [
       { to: '/admin', label: 'Tableau de bord', icon: '📊' },
       { to: '/admin/clients', label: 'Clients', icon: '⭐' },
@@ -82,11 +87,11 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
       )}
 
       <aside
-        className={`fixed lg:sticky lg:top-0 lg:h-screen inset-y-0 left-0 z-50 w-[270px] max-w-[85vw] shrink-0
-          bg-gradient-to-b from-[#1f1f1f] to-[#141414] text-[#e8e8e8] flex flex-col
-          border-r border-white/5 transition-transform duration-200 ease-out
-          lg:translate-x-0 lg:w-[260px]
-          ${open ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`fixed lg:sticky lg:top-0 lg:h-screen inset-y-0 inset-s-0 z-50 w-67.5 max-w-[85vw] shrink-0
+          bg-linear-to-b from-[#1f1f1f] to-[#141414] text-[#e8e8e8] flex flex-col
+          border-e border-white/5 transition-transform duration-200 ease-out
+          lg:translate-x-0 lg:w-65
+          ${open ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full'}`}
       >
         {/* brand */}
         <div className="flex items-center justify-between px-5 pt-6 pb-5">
@@ -101,7 +106,7 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
         </div>
 
         {/* nav */}
-        <nav className="flex-1 overflow-y-auto px-3 pb-4 [scrollbar-width:thin]">
+        <nav className="flex-1 overflow-y-auto px-3 pb-4 scrollbar-thin">
           {groups.map((g) => (
             <div key={g.title} className="mb-4">
               <p className="px-3 mb-1.5 text-[10.5px] font-bold tracking-wider text-[#6f6f6f]">{t(g.title)}</p>
@@ -115,15 +120,15 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
                     className={({ isActive }) =>
                       `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13.5px] transition-all ${
                         isActive
-                          ? 'bg-gradient-to-r from-[#e4211b]/25 to-[#e4211b]/5 text-white font-semibold shadow-[inset_3px_0_0_#e4211b]'
-                          : 'text-[#bdbdbd] hover:bg-white/[0.06] hover:text-white'
+                          ? 'bg-linear-to-r rtl:bg-gradient-to-l from-[#e4211b]/25 to-[#e4211b]/5 text-white font-semibold shadow-[inset_3px_0_0_#e4211b] rtl:shadow-[inset_-3px_0_0_#e4211b]'
+                          : 'text-[#bdbdbd] hover:bg-white/6 hover:text-white'
                       }`
                     }
                   >
                     {({ isActive }) => (
                       <>
                         <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-[15px] shrink-0 transition-colors ${
-                          isActive ? 'bg-[#e4211b]/30' : 'bg-white/[0.05] group-hover:bg-white/10'
+                          isActive ? 'bg-[#e4211b]/30' : 'bg-white/5 group-hover:bg-white/10'
                         }`}>{item.icon}</span>
                         <span className="truncate">{t(item.label)}</span>
                       </>
@@ -136,7 +141,7 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
         </nav>
 
         {/* user card — tap the name to open "Mon compte" (change password / email) */}
-        <div className="m-3 p-3 rounded-xl bg-white/[0.05] border border-white/5">
+        <div className="m-3 p-3 rounded-xl bg-white/5 border border-white/5">
           <NavLink
             to="/account"
             onClick={onClose}
@@ -149,7 +154,7 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
               <p className="text-[13px] font-semibold text-white truncate">{profile?.full_name || '—'}</p>
               <p className="text-[11px] text-[#9a9a9a]">{ROLE_LABEL[profile?.role] || profile?.role} · {t('Mon compte')}</p>
             </div>
-            <span className="text-[#777] text-lg leading-none">›</span>
+            <span className="text-[#777] text-lg leading-none rtl:rotate-180">›</span>
           </NavLink>
           <button onClick={handleLogout} className="mt-3 w-full text-center text-[12px] font-semibold text-[#ff8f89] hover:text-white hover:bg-white/5 rounded-lg py-2 transition-colors">
             {t('Se déconnecter')}
