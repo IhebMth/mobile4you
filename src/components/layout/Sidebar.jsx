@@ -20,6 +20,7 @@ const NAV_BY_ROLE = {
     ] },
     { title: 'Outils', items: [
       { to: '/price-guide', label: 'Guide des prix', icon: '💲' },
+      { to: '/phones', label: 'Catalogue téléphones', icon: '📚' },
     ] },
   ],
   technicien: [
@@ -32,6 +33,7 @@ const NAV_BY_ROLE = {
     ] },
     { title: 'Outils', items: [
       { to: '/price-guide', label: 'Guide des prix', icon: '💲' },
+      { to: '/phones', label: 'Catalogue téléphones', icon: '📚' },
     ] },
   ],
   admin: [
@@ -58,6 +60,7 @@ const NAV_BY_ROLE = {
       { to: '/admin/reports/daily', label: 'Rapport du jour', icon: '📅' },
       { to: '/admin/reports', label: 'Rapports', icon: '📈' },
       { to: '/price-guide', label: 'Guide des prix', icon: '💲' },
+      { to: '/phones', label: 'Catalogue téléphones', icon: '📚' },
     ] },
   ],
 }
@@ -68,6 +71,8 @@ const ROLE_LABEL = { admin: 'Admin', comptoir: 'Comptoir', technicien: 'Technici
 // Mobile: slides in from the left as a drawer when `open` is true, with a dark
 // overlay. `onClose` is called on the X, on the overlay and after tapping a link.
 // Props are the same as before, so ProtectedLayout.jsx does not change.
+// The "hidden" translate classes use max-lg: so they never apply on desktop
+// (otherwise, in Arabic, rtl:translate-x-full pushed the sidebar off the screen).
 export default function Sidebar({ open = false, onClose = () => {} }) {
   const { profile, logout } = useAuth()
   const { t } = useI18n()
@@ -90,8 +95,8 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
         className={`fixed lg:sticky lg:top-0 lg:h-screen inset-y-0 inset-s-0 z-50 w-67.5 max-w-[85vw] shrink-0
           bg-linear-to-b from-[#1f1f1f] to-[#141414] text-[#e8e8e8] flex flex-col
           border-e border-white/5 transition-transform duration-200 ease-out
-          lg:translate-x-0 lg:w-65
-          ${open ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full'}`}
+          lg:w-65
+          ${open ? 'translate-x-0' : 'max-lg:-translate-x-full max-lg:rtl:translate-x-full'}`}
       >
         {/* brand */}
         <div className="flex items-center justify-between px-5 pt-6 pb-5">
@@ -120,7 +125,7 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
                     className={({ isActive }) =>
                       `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13.5px] transition-all ${
                         isActive
-                          ? 'bg-linear-to-r rtl:bg-gradient-to-l from-[#e4211b]/25 to-[#e4211b]/5 text-white font-semibold shadow-[inset_3px_0_0_#e4211b] rtl:shadow-[inset_-3px_0_0_#e4211b]'
+                          ? 'bg-linear-to-r rtl:bg-linear-to-l from-[#e4211b]/25 to-[#e4211b]/5 text-white font-semibold shadow-[inset_3px_0_0_#e4211b] rtl:shadow-[inset_-3px_0_0_#e4211b]'
                           : 'text-[#bdbdbd] hover:bg-white/6 hover:text-white'
                       }`
                     }
@@ -146,7 +151,7 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
             to="/account"
             onClick={onClose}
             className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg p-1.5 -m-1.5 transition-colors ${isActive ? 'bg-white/10' : 'hover:bg-white/[0.06]'}`
+              `flex items-center gap-3 rounded-lg p-1.5 -m-1.5 transition-colors ${isActive ? 'bg-white/10' : 'hover:bg-white/6'}`
             }
           >
             <div className="w-9 h-9 rounded-full bg-[#e4211b] text-white font-bold flex items-center justify-center shrink-0">{initial}</div>

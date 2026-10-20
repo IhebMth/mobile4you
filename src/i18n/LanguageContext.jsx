@@ -1,7 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo } from 'react'
-import en from './en'
-import ar from './ar'
+import enBase from './en'
+import arBase from './ar'
+import enCatalog from './en_catalog'
+import arCatalog from './ar_catalog'
 import { supabase } from '../lib/supabaseClient'
 
 // Three languages: French (default), English and Arabic (right to left).
@@ -18,6 +20,9 @@ import { supabase } from '../lib/supabaseClient'
 
 const STORAGE_KEY = 'm4u-lang'
 export const LANGUAGES = ['fr', 'en', 'ar']
+// the catalogue texts are in their own files and merged here
+const en = { ...enBase, ...enCatalog }
+const ar = { ...arBase, ...arCatalog }
 const DICTIONARIES = { fr: {}, en, ar }
 const LOCALES = { fr: 'fr-FR', en: 'en-GB', ar: 'ar-TN' }
 
@@ -38,7 +43,6 @@ if (typeof document !== 'undefined') {
   document.documentElement.dir = DIR
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function getLang() { return current }
 export function getLocale() { return LOCALES[current] }
 export function getDir() { return DIR }
@@ -97,7 +101,6 @@ export function LanguageProvider({ children }) {
 }
 
 // const { t, lang, dir, locale, setLang } = useI18n()   (same t as the one you can import directly)
-// eslint-disable-next-line react-refresh/only-export-components
 export function useI18n() {
   return useContext(LanguageContext)
 }

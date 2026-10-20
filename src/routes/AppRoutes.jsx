@@ -28,6 +28,7 @@ import Caisse from '../pages/caisse/Caisse'
 import Debts from '../pages/shared/Debts'
 import VoidRequests from '../pages/admin/VoidRequests'
 import PriceGuide from '../pages/shared/PriceGuide'
+import PhoneCatalog from '../pages/shared/PhoneCatalog'
 import ScanRedirect from '../pages/shared/ScanRedirect'
 import ProductScanRedirect from '../pages/shared/ProductScanRedirect'
 import Clients from '../pages/shared/Clients'
@@ -58,6 +59,7 @@ export default function AppRoutes() {
                 match the first wrapper only, and a role not in it is sent to /unauthorized.) */}
             <Route element={<ProtectedRoute allowedRoles={['admin', 'comptoir', 'technicien']} />}>
               <Route path="/price-guide" element={<PriceGuide />} />
+              <Route path="/phones" element={<PhoneCatalog />} />
               <Route path="/account" element={<MyAccount />} />
               <Route path="/o/:orderNumber" element={<ScanRedirect />} />
               <Route path="/p/:productId" element={<ProductScanRedirect />} />

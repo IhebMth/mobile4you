@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import { t, getLocale } from '../../i18n/LanguageContext'
+import { usePhoneModelNames } from '../../lib/usePhoneModels'
 
 // Common part types shown as quick filter chips + suggestions in the form.
 // Free text is still allowed (e.g. "بورت شحن") — this list is just a shortcut.
@@ -14,6 +16,14 @@ const PART_ICONS = {
 }
 const partIcon = (type) => PART_ICONS[type] || '🔧'
 
+// quality shortcuts: a screen can have 2, 3 or 4 qualities, each with its own price
+const QUALITY_SUGGESTIONS = [t('Original'), t('OLED'), t('Copie 1er choix'), t('Copie')]
+// prices change often: a price not touched for 7 days gets a "check again" badge
+const STALE_DAYS = 7
+const isStale = (r) => r.updated_at && Date.now() - new Date(r.updated_at).getTime() > STALE_DAYS * 86400000
+const fmtP = (min, max) =>
+  min == null ? '—' : max != null && Number(max) !== Number(min) ? Number(min).toFixed(2) + '-' + Number(max).toFixed(2) : Number(min).toFixed(2)
+
 function priceLabel(r) {
   const hasMax = r.price_max != null && Number(r.price_max) !== Number(r.price_min)
   return hasMax
@@ -23,26 +33,38 @@ function priceLabel(r) {
 
 export default function PriceGuide() {
   const { user, profile } = useAuth()
-  // Admin AND technicien can add / edit / delete. Comptoir can only view and search.
-  const canEdit = ['admin', 'super_admin', 'technicien'].includes(profile?.role)
+  // All three roles (admin, comptoir, technicien) can add / edit / delete prices.
+  const canEdit = ['admin', 'super_admin', 'technicien', 'comptoir'].includes(profile?.role)
+  const phoneModels = usePhoneModelNames()
+  const [params] = useSearchParams()
 
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(params.get('model') || '')
   const [partFilter, setPartFilter] = useState('')
 
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm())
+  const [catalogueAddHandled, setCatalogueAddHandled] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState(null)
+  const [history, setHistory] = useState([])
 
   function emptyForm() {
-    return { device_model: '', part_type: '', quality_label: '', price_min: '', price_max: '', notes: '' }
+    return { device_model: '', part_type: '', quality_label: '', price_min: '', price_max: '', buy_price: '', notes: '' }
   }
 
   useEffect(() => { load() }, [])
+
+  // coming from the phone catalogue ("+ Ajouter une pièce"): open the form with the model filled in
+  const catalogueModel = params.get('model')
+  if (catalogueModel && params.get('add') === '1' && canEdit && !catalogueAddHandled) {
+    setCatalogueAddHandled(true)
+    setForm({ ...emptyForm(), device_model: catalogueModel })
+    setShowForm(true)
+  }
 
   async function load() {
     setLoading(true)
@@ -51,7 +73,7 @@ export default function PriceGuide() {
     const { data, error: e } = await supabase
       .from('part_price_guide')
       .select(
-        'id, device_model, part_type, quality_label, price_min, price_max, notes, updated_at, ' +
+        'id, device_model, part_type, quality_label, price_min, price_max, buy_price, notes, updated_at, ' +
         'profiles!part_price_guide_updated_by_fkey(full_name)'
       )
       .order('device_model', { ascending: true })
@@ -92,8 +114,19 @@ export default function PriceGuide() {
     [rows]
   )
 
+  async function loadHistory(guideId) {
+    const { data } = await supabase
+      .from('part_price_history')
+      .select('id, old_price_min, old_price_max, old_buy_price, new_price_min, new_price_max, new_buy_price, changed_at, profiles(full_name)')
+      .eq('guide_id', guideId)
+      .order('changed_at', { ascending: false })
+      .limit(6)
+    setHistory(data || [])
+  }
+
   function openAdd() {
     setEditingId(null)
+    setHistory([])
     setForm(emptyForm())
     setFormError(null)
     setShowForm(true)
@@ -103,10 +136,13 @@ export default function PriceGuide() {
     setEditingId(r.id)
     setForm({
       device_model: r.device_model, part_type: r.part_type, quality_label: r.quality_label,
-      price_min: r.price_min, price_max: r.price_max ?? '', notes: r.notes || '',
+      price_min: r.price_min, price_max: r.price_max ?? '', buy_price: r.buy_price ?? '', notes: r.notes || '',
     })
     setFormError(null)
+    setHistory([])
+    loadHistory(r.id)
     setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function submitForm(e) {
@@ -114,12 +150,17 @@ export default function PriceGuide() {
     setFormError(null)
     const min = Number(form.price_min)
     const max = form.price_max === '' ? null : Number(form.price_max)
+    const buy = form.buy_price === '' ? null : Number(form.buy_price)
     if (!form.device_model.trim() || !form.part_type.trim() || !form.quality_label.trim() || min <= 0) {
       setFormError(t('Remplissez le modèle, le type de pièce, la qualité et au moins le prix « de »'))
       return
     }
     if (max !== null && max < min) {
       setFormError(t('« À » doit être supérieur ou égal à « De »'))
+      return
+    }
+    if (buy !== null && !(buy >= 0)) {
+      setFormError(t('Le prix d\'achat est invalide'))
       return
     }
     setSaving(true)
@@ -129,6 +170,7 @@ export default function PriceGuide() {
       quality_label: form.quality_label.trim(),
       price_min: min,
       price_max: max,
+      buy_price: buy,
       notes: form.notes.trim() || null,
     }
     const { error: err } = editingId
@@ -152,9 +194,19 @@ export default function PriceGuide() {
   function EditedBy({ r }) {
     if (!r.updated_at) return null
     return (
-      <p className="text-[10px] text-[#9a9a9a] mt-1">
-        {t('Dernière modification')} : {r.profiles?.full_name || '—'} · {new Date(r.updated_at).toLocaleDateString(getLocale())}
-      </p>
+      <div className="mt-1">
+        {r.buy_price != null && (
+          <p className="text-[11px] text-[#6b6b6b]">
+            {t('Achat : {price} DT', { price: Number(r.buy_price).toFixed(2) })}
+            {' · '}
+            {t('Marge : {price} DT', { price: (Number(r.price_min) - Number(r.buy_price)).toFixed(2) })}
+          </p>
+        )}
+        <p className="text-[10px] text-[#9a9a9a]">
+          {t('Dernière modification')} : {r.profiles?.full_name || '—'} · {new Date(r.updated_at).toLocaleDateString(getLocale())}
+          {isStale(r) && <span className="ms-1.5 bg-[#fff4e0] text-[#b36b00] font-semibold px-1.5 py-0.5 rounded">{t('⚠️ À revérifier')}</span>}
+        </p>
+      </div>
     )
   }
 
@@ -204,8 +256,11 @@ export default function PriceGuide() {
         <form onSubmit={submitForm} className="bg-white border border-[#e5e5e5] rounded-xl p-4 sm:p-6 mb-6 max-w-lg">
           <h3 className="font-bold text-sm mb-4">{editingId ? t('Modifier le prix') : t('Nouveau prix')}</h3>
           <label className="block text-sm font-semibold mb-1.5">{t('Modèle du téléphone')}</label>
-          <input className={inp + ' mb-4'} placeholder={t('Ex. : iPhone 13 Pro')}
+          <input className={inp + ' mb-4'} placeholder={t('Ex. : iPhone 13 Pro')} list="phone-model-options"
             value={form.device_model} onChange={(e) => setForm({ ...form, device_model: e.target.value })} />
+          <datalist id="phone-model-options">
+            {phoneModels.map((n) => <option key={n} value={n} />)}
+          </datalist>
 
           <label className="block text-sm font-semibold mb-1.5">{t('Type de pièce')}</label>
           <input className={inp + ' mb-2'} placeholder={t('Ex. : écran')}
@@ -223,8 +278,16 @@ export default function PriceGuide() {
           </div>
 
           <label className="block text-sm font-semibold mb-1.5">{t('Qualité / type (original, copie 1er choix...)')}</label>
-          <input className={inp + ' mb-4'} placeholder={t('Ex. : original')}
+          <input className={inp + ' mb-2'} placeholder={t('Ex. : original')}
             value={form.quality_label} onChange={(e) => setForm({ ...form, quality_label: e.target.value })} />
+          <div className="flex gap-1.5 flex-wrap mb-4">
+            {QUALITY_SUGGESTIONS.map((q) => (
+              <button type="button" key={q} onClick={() => setForm({ ...form, quality_label: q })}
+                className="text-[11px] px-2.5 py-1 rounded-full border border-[#e5e5e5] text-[#6b6b6b] hover:border-[#e4211b] hover:text-[#e4211b]">
+                {q}
+              </button>
+            ))}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
@@ -239,9 +302,35 @@ export default function PriceGuide() {
             </div>
           </div>
 
+          <label className="block text-sm font-semibold mb-1.5">{t('Prix d\'achat (DT) — facultatif')}</label>
+          <input type="number" step="0.001" className={inp + ' mb-4'} placeholder={t('Ce que la pièce vous coûte')}
+            value={form.buy_price} onChange={(e) => setForm({ ...form, buy_price: e.target.value })} />
+
           <label className="block text-sm font-semibold mb-1.5">{t('Remarques (facultatif)')}</label>
           <input className={inp + ' mb-4'}
             value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+
+          {editingId && (
+            <div className="mb-4">
+              <p className="text-xs font-bold text-[#e4211b] mb-1.5">{t('Historique des prix')}</p>
+              {history.length === 0 ? (
+                <p className="text-xs text-[#6b6b6b]">{t('Aucun changement enregistré.')}</p>
+              ) : (
+                <ul className="text-xs text-[#6b6b6b] flex flex-col gap-1">
+                  {history.map((h) => (
+                    <li key={h.id}>
+                      {t('{date} · {name} : {old} → {new}', {
+                        date: new Date(h.changed_at).toLocaleDateString(getLocale()),
+                        name: h.profiles?.full_name || '—',
+                        old: fmtP(h.old_price_min, h.old_price_max),
+                        new: fmtP(h.new_price_min, h.new_price_max),
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {formError && <p className="text-[#b3170f] text-sm mb-3">{formError}</p>}
           <div className="flex gap-2">
@@ -271,7 +360,7 @@ export default function PriceGuide() {
         <div className="flex flex-col gap-4">
           {grouped.map(([model, items]) => (
             <div key={model} className="bg-white border border-[#e5e5e5] rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-[#faf9f5] border-b border-[#e5e5e5] border-r-[3px] border-r-[#e4211b]">
+              <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-[#faf9f5] border-b border-[#e5e5e5] border-e-[3px] border-e-[#e4211b]">
                 <span className="font-bold text-[#1a1a1a] text-sm">{model}</span>
                 <span className="text-[11px] text-[#9a9a9a]">{t('{n} prix', { n: items.length })}</span>
               </div>
@@ -288,7 +377,7 @@ export default function PriceGuide() {
                         <EditedBy r={r} />
                       </div>
                     </div>
-                    <div className="text-left shrink-0 flex flex-col items-end gap-1.5">
+                    <div className="text-start shrink-0 flex flex-col items-end gap-1.5">
                       <span className="bg-[#eefaf1] text-[#1f8a4c] font-bold text-xs whitespace-nowrap px-2.5 py-1 rounded-full">
                         {priceLabel(r)}
                       </span>
@@ -310,7 +399,7 @@ export default function PriceGuide() {
                   {items.map((r) => (
                     <tr key={r.id} className="hover:bg-[#fbfaf6] border-b border-[#f0f0ea] last:border-b-0">
                       <td className="px-5 py-3 w-48 font-semibold">
-                        <span className="ml-1.5">{partIcon(r.part_type)}</span>{r.part_type}
+                        <span className="ms-1.5">{partIcon(r.part_type)}</span>{r.part_type}
                       </td>
                       <td className="px-5 py-3 text-[#6b6b6b]">{r.quality_label}</td>
                       <td className="px-5 py-3 text-xs text-[#6b6b6b]">
@@ -323,7 +412,7 @@ export default function PriceGuide() {
                         </span>
                       </td>
                       {canEdit && (
-                        <td className="px-5 py-3 text-left">
+                        <td className="px-5 py-3 text-start">
                           <button onClick={() => openEdit(r)}
                             className="flex items-center gap-1 text-xs text-[#6b6b6b] border border-[#e5e5e5] rounded-lg px-2.5 py-1.5 hover:border-[#e4211b] hover:text-[#e4211b] transition-colors">
                             

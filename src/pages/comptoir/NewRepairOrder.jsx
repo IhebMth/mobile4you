@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import PrintOrderDialog from '../../components/qr/PrintOrderDialog'
 import { t } from '../../i18n/LanguageContext'
+import { usePhoneModelNames } from '../../lib/usePhoneModels'
 
 export default function NewRepairOrder() {
   const { user } = useAuth()
@@ -12,6 +13,7 @@ export default function NewRepairOrder() {
   const [clientName, setClientName] = useState('')
   const [clientPhone, setClientPhone] = useState('')
   const [deviceModel, setDeviceModel] = useState('')
+  const phoneModels = usePhoneModelNames()
   const [issue, setIssue] = useState('')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
@@ -128,7 +130,8 @@ export default function NewRepairOrder() {
 
         <div className="mb-4">
           <label className="block text-sm font-semibold text-[#1a1a1a] mb-1.5">{t('Modèle de l\'appareil')}</label>
-          <input value={deviceModel} onChange={(e) => setDeviceModel(e.target.value)} placeholder={t('Exemple : iPhone 12 Pro')} className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]" required />
+          <datalist id="phone-model-options">{phoneModels.map((n) => <option key={n} value={n} />)}</datalist>
+          <input list="phone-model-options" value={deviceModel} onChange={(e) => setDeviceModel(e.target.value)} placeholder={t('Exemple : iPhone 12 Pro')} className="w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]" required />
         </div>
 
         <div className="mb-4">

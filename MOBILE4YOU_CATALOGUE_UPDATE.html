@@ -1,0 +1,2369 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mobile 4 You — Catalogue update</title><style>*{box-sizing:border-box}body{font-family:system-ui,-apple-system,Segoe UI,Tahoma,sans-serif;max-width:980px;margin:0 auto;padding:32px 20px;color:#1a1a1a;background:#fff;line-height:1.6}
+h1{font-size:26px;margin:0 0 4px}h2{margin-top:44px;border-bottom:2px solid #e4211b;padding-bottom:6px}h3{margin:28px 0 4px;font-size:16px}
+.n{font-size:13px;color:#6b6b6b;margin:0 0 8px}.sub{color:#6b6b6b;margin:0 0 20px}code{background:#f3f1ea;padding:1px 5px;border-radius:4px;font-size:.9em}
+table{border-collapse:collapse;width:100%;font-size:14px}td,th{border:1px solid #e5e5e5;padding:10px;text-align:left;vertical-align:top}th{background:#faf9f5}
+.box{background:#fff8f0;border:1px solid #f0d9b8;border-radius:10px;padding:14px 18px;margin:18px 0}.cb{position:relative}
+pre{background:#1a1a1a;color:#e8e8e8;padding:16px;border-radius:10px;overflow:auto;font-size:12.5px;line-height:1.5;direction:ltr;text-align:left;max-height:560px}
+pre.tree{max-height:none}.cb button{position:absolute;top:8px;right:8px;background:#e4211b;color:#fff;border:0;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;z-index:2}
+nav a{margin-right:14px;font-size:14px;color:#b3170f}
+@media(prefers-color-scheme:dark){body{background:#151515;color:#e8e8e8}code,th{background:#262626}td,th{border-color:#333}.box{background:#2a2218;border-color:#4a3a20}}
+.tag{background:#fdecd8;color:#8a4f06;font-size:11px;padding:2px 6px;border-radius:5px;font-weight:700;margin-right:6px}</style></head><body><h1>Mobile 4 You — catalogue update (only what changed)</h1><p class="sub">Parts prices with several qualities + buying price + history, and a phone catalogue of 113 models · 19/10/2026 · French / English / Arabic</p><nav><a href="#a">Overview</a><a href="#b">1 SQL</a><a href="#c">2 New files</a><a href="#d">3 Updated files</a><a href="#f">4 Test</a></nav><h2 id="a">What you get</h2><div class="box"><ul><li><b>Price guide:</b> a screen can have 2, 3 or 4 qualities, each with its own price; buying price and margin; price history; « check again » badge after 7 days. <b>All three roles</b> (admin, comptoir, technicien) can add and edit.</li><li><b>Phone catalogue:</b> new menu page with 113 popular models and their specs (screen, battery, charge port, chipset, RAM, storage) and the parts and prices of each model.</li><li><b>Reception:</b> the device model field suggests names from the catalogue.</li></ul></div><div class="box"><b>Honest note:</b> this was written after the tested build and has <b>not been run</b> (no PostgreSQL or npm in the test environment). The phone specs come from general knowledge: each sheet shows « Fiche à vérifier » until someone ticks « Fiche vérifiée ». No part price and no phone price is invented: you type them. The buying price is visible to every role. If something fails, send me the exact message.</div><div class="box"><b>If you changed one of the 6 updated files yourself</b> since the main guide, send it to me before overwriting, so I can merge your changes.</div><p>Do the steps <b>in this order</b>. Every block has a <b>Copy</b> button. Every updated file is given <b>complete</b>.</p><h2 id="b">1 — Database (once)</h2><p>Supabase → SQL Editor → New query → paste → Run. It can be run again without harm.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>-- ====================================================================
+-- MOBILE 4 YOU — CATALOGUE UPDATE (materials prices + phone models)
+-- Run it on your existing database (Supabase -&gt; SQL Editor -&gt; paste -&gt; Run).
+-- It can be run again without harm: every step checks before it changes anything.
+-- What it does:
+--   1. Parts price guide: adds a BUYING price, a price history (who changed what, when),
+--      and lets ALL three roles (admin, comptoir, technicien) add / edit prices.
+--   2. New table phone_models: brand, model, year, screen, battery, charge port, chipset,
+--      RAM / storage, market price (you type the prices) + 113 popular models already filled.
+--   3. The comptoir can see the admin in the technician list (same fix as before, repeated here).
+-- NOTE: this file was written but not executed on a test database. If a line fails, send me the exact message.
+-- ====================================================================
+
+-- 1 ---------------------------------------------------------------- parts: buying price
+alter table public.part_price_guide add column if not exists buy_price numeric;
+alter table public.part_price_guide drop constraint if exists part_price_guide_buy_price_check;
+alter table public.part_price_guide add constraint part_price_guide_buy_price_check
+  check (buy_price is null or buy_price &gt;= 0);
+
+-- 1b --------------------------------------------------------------- parts: price history
+create table if not exists public.part_price_history (
+  id uuid primary key default gen_random_uuid(),
+  guide_id uuid not null references public.part_price_guide(id) on delete cascade,
+  old_price_min numeric, old_price_max numeric, old_buy_price numeric,
+  new_price_min numeric, new_price_max numeric, new_buy_price numeric,
+  changed_by uuid references public.profiles(id),
+  changed_at timestamptz not null default now()
+);
+create index if not exists idx_pph_guide on public.part_price_history (guide_id, changed_at desc);
+alter table public.part_price_history enable row level security;
+drop policy if exists &quot;view price history&quot; on public.part_price_history;
+create policy &quot;view price history&quot; on public.part_price_history for select
+  using (public.get_my_role() = any (array[&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;comptoir&#x27;,&#x27;technicien&#x27;]));
+
+create or replace function public.log_price_change() returns trigger
+  language plpgsql security definer set search_path to &#x27;public&#x27; as $$
+begin
+  if new.price_min is distinct from old.price_min
+     or new.price_max is distinct from old.price_max
+     or new.buy_price is distinct from old.buy_price then
+    insert into public.part_price_history
+      (guide_id, old_price_min, old_price_max, old_buy_price,
+       new_price_min, new_price_max, new_buy_price, changed_by)
+    values (new.id, old.price_min, old.price_max, old.buy_price,
+            new.price_min, new.price_max, new.buy_price, auth.uid());
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_log_price_change on public.part_price_guide;
+create trigger trg_log_price_change after update on public.part_price_guide
+  for each row execute function public.log_price_change();
+
+-- 1c --------------------------------------------------------------- parts: all 3 roles can edit
+drop policy if exists &quot;staff edit price guide&quot; on public.part_price_guide;
+create policy &quot;staff edit price guide&quot; on public.part_price_guide
+  using (public.get_my_role() = any (array[&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;technicien&#x27;,&#x27;comptoir&#x27;]))
+  with check (public.get_my_role() = any (array[&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;technicien&#x27;,&#x27;comptoir&#x27;]));
+
+-- 2 ---------------------------------------------------------------- phone models catalogue
+create table if not exists public.phone_models (
+  id uuid primary key default gen_random_uuid(),
+  brand text not null,
+  name text not null,
+  release_year integer,
+  screen_size numeric,
+  screen_type text,
+  battery_mah integer,
+  charge_port text,
+  chipset text,
+  ram_gb text,
+  storage_gb text,
+  market_price_min numeric,
+  market_price_max numeric,
+  notes text,
+  specs_verified boolean not null default false,
+  created_by uuid default auth.uid() references public.profiles(id),
+  updated_by uuid references public.profiles(id),
+  updated_at timestamptz default now(),
+  created_at timestamptz default now(),
+  constraint phone_models_brand_check check (char_length(trim(both from brand)) &gt; 0),
+  constraint phone_models_name_check check (char_length(trim(both from name)) &gt; 0),
+  constraint phone_models_price_check check (
+    market_price_min is null or (market_price_min &gt; 0 and (market_price_max is null or market_price_max &gt;= market_price_min)))
+);
+create unique index if not exists uq_phone_models_name on public.phone_models (lower(name));
+create index if not exists idx_phone_models_brand on public.phone_models (lower(brand));
+
+create or replace function public.touch_phone_models() returns trigger
+  language plpgsql security definer set search_path to &#x27;public&#x27; as $$
+begin
+  new.updated_at = now();
+  new.updated_by = auth.uid();
+  return new;
+end $$;
+drop trigger if exists trg_touch_phone_models on public.phone_models;
+create trigger trg_touch_phone_models before insert or update on public.phone_models
+  for each row execute function public.touch_phone_models();
+
+alter table public.phone_models enable row level security;
+drop policy if exists &quot;view phone models&quot; on public.phone_models;
+create policy &quot;view phone models&quot; on public.phone_models for select
+  using (public.get_my_role() = any (array[&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;comptoir&#x27;,&#x27;technicien&#x27;]));
+drop policy if exists &quot;staff add phone models&quot; on public.phone_models;
+create policy &quot;staff add phone models&quot; on public.phone_models for insert
+  with check (public.get_my_role() = any (array[&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;comptoir&#x27;,&#x27;technicien&#x27;]));
+drop policy if exists &quot;staff edit phone models&quot; on public.phone_models;
+create policy &quot;staff edit phone models&quot; on public.phone_models for update
+  using (public.get_my_role() = any (array[&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;comptoir&#x27;,&#x27;technicien&#x27;]))
+  with check (public.get_my_role() = any (array[&#x27;admin&#x27;,&#x27;super_admin&#x27;,&#x27;comptoir&#x27;,&#x27;technicien&#x27;]));
+drop policy if exists &quot;admin deletes phone models&quot; on public.phone_models;
+create policy &quot;admin deletes phone models&quot; on public.phone_models for delete
+  using (public.get_my_role() = any (array[&#x27;admin&#x27;,&#x27;super_admin&#x27;]));
+
+-- 3 ---------------------------------------------------------------- comptoir sees admin + technicians
+drop policy if exists &quot;comptoir views technicians&quot; on public.profiles;
+create policy &quot;comptoir views technicians&quot; on public.profiles for select using (
+  auth.uid() = id
+  or public.get_my_role() = &#x27;admin&#x27;
+  or (public.get_my_role() = &#x27;comptoir&#x27; and role = any (array[&#x27;technicien&#x27;,&#x27;admin&#x27;])));
+
+-- 4 ---------------------------------------------------------------- the popular phones (specs only, no prices)
+-- specs_verified = false: the specs come from general knowledge, check them and tick &quot;verified&quot; in the app.
+insert into public.phone_models
+  (brand, name, release_year, screen_size, screen_type, battery_mah, charge_port, chipset, ram_gb, storage_gb)
+values
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A04&#x27;, 2022, 6.5, &#x27;PLS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio P35&#x27;, &#x27;3/4&#x27;, &#x27;32/64/128&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A05&#x27;, 2023, 6.7, &#x27;PLS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G85&#x27;, &#x27;4&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A05s&#x27;, 2023, 6.7, &#x27;PLS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Snapdragon 680&#x27;, &#x27;4/6&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A12&#x27;, 2020, 6.5, &#x27;PLS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio P35&#x27;, &#x27;3/4&#x27;, &#x27;32/64/128&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A13&#x27;, 2022, 6.6, &#x27;PLS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Exynos 850&#x27;, &#x27;3/4&#x27;, &#x27;32/64/128&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A14&#x27;, 2023, 6.6, &#x27;PLS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G80&#x27;, &#x27;4/6&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A15&#x27;, 2023, 6.5, &#x27;Super AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G99&#x27;, &#x27;4/6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A21s&#x27;, 2020, 6.5, &#x27;PLS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Exynos 850&#x27;, &#x27;3/4/6&#x27;, &#x27;32/64/128&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A23&#x27;, 2022, 6.6, &#x27;PLS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Snapdragon 680&#x27;, &#x27;4/6&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A24&#x27;, 2023, 6.5, &#x27;Super AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G99&#x27;, &#x27;4/6/8&#x27;, &#x27;128&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A25 5G&#x27;, 2023, 6.5, &#x27;Super AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Exynos 1280&#x27;, &#x27;6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A32 4G&#x27;, 2021, 6.4, &#x27;Super AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G80&#x27;, &#x27;4/6/8&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A34 5G&#x27;, 2023, 6.6, &#x27;Super AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Dimensity 1080&#x27;, &#x27;6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A35 5G&#x27;, 2024, 6.6, &#x27;Super AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Exynos 1380&#x27;, &#x27;6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A51&#x27;, 2019, 6.5, &#x27;Super AMOLED&#x27;, 4000, &#x27;USB-C&#x27;, &#x27;Exynos 9611&#x27;, &#x27;4/6/8&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A52&#x27;, 2021, 6.5, &#x27;Super AMOLED&#x27;, 4500, &#x27;USB-C&#x27;, &#x27;Snapdragon 720G&#x27;, &#x27;4/6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A54 5G&#x27;, 2023, 6.4, &#x27;Super AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Exynos 1380&#x27;, &#x27;6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy A55 5G&#x27;, 2024, 6.6, &#x27;Super AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Exynos 1480&#x27;, &#x27;8/12&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy S21 FE 5G&#x27;, 2022, 6.4, &#x27;Dynamic AMOLED&#x27;, 4500, &#x27;USB-C&#x27;, &#x27;Snapdragon 888&#x27;, &#x27;6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy S22&#x27;, 2022, 6.1, &#x27;Dynamic AMOLED&#x27;, 3700, &#x27;USB-C&#x27;, &#x27;Snapdragon 8 Gen 1&#x27;, &#x27;8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy S23&#x27;, 2023, 6.1, &#x27;Dynamic AMOLED&#x27;, 3900, &#x27;USB-C&#x27;, &#x27;Snapdragon 8 Gen 2&#x27;, &#x27;8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy S23 Ultra&#x27;, 2023, 6.8, &#x27;Dynamic AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Snapdragon 8 Gen 2&#x27;, &#x27;8/12&#x27;, &#x27;256/512&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy S24&#x27;, 2024, 6.2, &#x27;Dynamic AMOLED&#x27;, 4000, &#x27;USB-C&#x27;, &#x27;Exynos 2400&#x27;, &#x27;8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Samsung&#x27;, &#x27;Samsung Galaxy S24 Ultra&#x27;, 2024, 6.8, &#x27;Dynamic AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Snapdragon 8 Gen 3&#x27;, &#x27;12&#x27;, &#x27;256/512&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi 9A&#x27;, 2020, 6.53, &#x27;IPS LCD&#x27;, 5000, &#x27;Micro-USB&#x27;, &#x27;Helio G25&#x27;, &#x27;2/3&#x27;, &#x27;32&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi 9C&#x27;, 2020, 6.53, &#x27;IPS LCD&#x27;, 5000, &#x27;Micro-USB&#x27;, &#x27;Helio G35&#x27;, &#x27;2/3/4&#x27;, &#x27;32/64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi 9&#x27;, 2020, 6.53, &#x27;IPS LCD&#x27;, 5020, &#x27;USB-C&#x27;, &#x27;Helio G80&#x27;, &#x27;3/4&#x27;, &#x27;32/64&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi 10&#x27;, 2021, 6.5, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G88&#x27;, &#x27;4/6&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi 10A&#x27;, 2022, 6.53, &#x27;IPS LCD&#x27;, 5000, &#x27;Micro-USB&#x27;, &#x27;Helio G25&#x27;, &#x27;2/3/4&#x27;, &#x27;32/64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi 10C&#x27;, 2022, 6.71, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Snapdragon 680&#x27;, &#x27;3/4&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi 12&#x27;, 2023, 6.79, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G88&#x27;, &#x27;4/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi 12C&#x27;, 2022, 6.71, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G85&#x27;, &#x27;3/4/6&#x27;, &#x27;32/64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi 13C&#x27;, 2023, 6.74, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G85&#x27;, &#x27;4/6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi 14C&#x27;, 2024, 6.88, &#x27;IPS LCD&#x27;, 5160, &#x27;USB-C&#x27;, &#x27;Helio G81 Ultra&#x27;, &#x27;4/6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi A3&#x27;, 2024, 6.71, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G36&#x27;, &#x27;3/4&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 8&#x27;, 2019, 6.3, &#x27;IPS LCD&#x27;, 4000, &#x27;USB-C&#x27;, &#x27;Snapdragon 665&#x27;, &#x27;3/4/6&#x27;, &#x27;32/64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 9&#x27;, 2020, 6.53, &#x27;IPS LCD&#x27;, 5020, &#x27;USB-C&#x27;, &#x27;Helio G85&#x27;, &#x27;3/4&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 9 Pro&#x27;, 2020, 6.67, &#x27;IPS LCD&#x27;, 5020, &#x27;USB-C&#x27;, &#x27;Snapdragon 720G&#x27;, &#x27;4/6&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 10&#x27;, 2021, 6.43, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Snapdragon 678&#x27;, &#x27;4/6&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 10S&#x27;, 2021, 6.43, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G95&#x27;, &#x27;4/6/8&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 10 Pro&#x27;, 2021, 6.67, &#x27;AMOLED&#x27;, 5020, &#x27;USB-C&#x27;, &#x27;Snapdragon 732G&#x27;, &#x27;6/8&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 11&#x27;, 2022, 6.43, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Snapdragon 680&#x27;, &#x27;4/6&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 11S&#x27;, 2022, 6.43, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G96&#x27;, &#x27;6/8&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 11 Pro&#x27;, 2022, 6.67, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G96&#x27;, &#x27;6/8&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 12 4G&#x27;, 2023, 6.67, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Snapdragon 685&#x27;, &#x27;4/6/8&#x27;, &#x27;64/128/256&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 12 5G&#x27;, 2023, 6.67, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Snapdragon 4 Gen 1&#x27;, &#x27;4/6/8&#x27;, &#x27;128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 12 Pro 5G&#x27;, 2023, 6.67, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Dimensity 1080&#x27;, &#x27;6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 13 4G&#x27;, 2024, 6.67, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G99 Ultra&#x27;, &#x27;6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 13 5G&#x27;, 2024, 6.67, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Dimensity 6080&#x27;, &#x27;6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 13 Pro 4G&#x27;, 2024, 6.67, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G99 Ultra&#x27;, &#x27;8/12&#x27;, &#x27;128/256/512&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 13 Pro 5G&#x27;, 2024, 6.67, &#x27;AMOLED&#x27;, 5100, &#x27;USB-C&#x27;, &#x27;Snapdragon 7s Gen 2&#x27;, &#x27;8/12&#x27;, &#x27;128/256/512&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Redmi Note 14 4G&#x27;, 2024, 6.67, &#x27;AMOLED&#x27;, 5500, &#x27;USB-C&#x27;, &#x27;Helio G99 Ultra&#x27;, &#x27;6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Poco C65&#x27;, 2023, 6.74, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G85&#x27;, &#x27;4/6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Poco M5&#x27;, 2022, 6.58, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G99&#x27;, &#x27;4/6&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Poco X3 Pro&#x27;, 2021, 6.67, &#x27;IPS LCD&#x27;, 5160, &#x27;USB-C&#x27;, &#x27;Snapdragon 860&#x27;, &#x27;6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Poco X5 Pro 5G&#x27;, 2023, 6.67, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Snapdragon 778G&#x27;, &#x27;6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Xiaomi&#x27;, &#x27;Xiaomi Poco F5&#x27;, 2023, 6.67, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Snapdragon 7+ Gen 2&#x27;, &#x27;8/12&#x27;, &#x27;256/512&#x27;),
+  (&#x27;Infinix&#x27;, &#x27;Infinix Smart 8&#x27;, 2023, 6.6, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G36&#x27;, &#x27;3/4&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Infinix&#x27;, &#x27;Infinix Hot 30&#x27;, 2023, 6.78, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G88&#x27;, &#x27;4/8&#x27;, &#x27;64/128/256&#x27;),
+  (&#x27;Infinix&#x27;, &#x27;Infinix Hot 40i&#x27;, 2023, 6.56, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Unisoc T606&#x27;, &#x27;4/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Infinix&#x27;, &#x27;Infinix Hot 40 Pro&#x27;, 2023, 6.78, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G99&#x27;, &#x27;8&#x27;, &#x27;256&#x27;),
+  (&#x27;Infinix&#x27;, &#x27;Infinix Note 30&#x27;, 2023, 6.78, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G99&#x27;, &#x27;8&#x27;, &#x27;256&#x27;),
+  (&#x27;Infinix&#x27;, &#x27;Infinix Note 40&#x27;, 2024, 6.78, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G99&#x27;, &#x27;8&#x27;, &#x27;256&#x27;),
+  (&#x27;Tecno&#x27;, &#x27;Tecno Spark 10&#x27;, 2023, 6.6, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G37&#x27;, &#x27;4/8&#x27;, &#x27;128&#x27;),
+  (&#x27;Tecno&#x27;, &#x27;Tecno Spark 20&#x27;, 2024, 6.56, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G85&#x27;, &#x27;8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Tecno&#x27;, &#x27;Tecno Spark 20C&#x27;, 2023, 6.56, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G36&#x27;, &#x27;4/8&#x27;, &#x27;128&#x27;),
+  (&#x27;Tecno&#x27;, &#x27;Tecno Camon 20&#x27;, 2023, 6.67, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G85&#x27;, &#x27;8&#x27;, &#x27;256&#x27;),
+  (&#x27;Tecno&#x27;, &#x27;Tecno Pova 5&#x27;, 2023, 6.78, &#x27;IPS LCD&#x27;, 6000, &#x27;USB-C&#x27;, &#x27;Helio G99&#x27;, &#x27;8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Realme&#x27;, &#x27;Realme C35&#x27;, 2022, 6.6, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Unisoc T616&#x27;, &#x27;4&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Realme&#x27;, &#x27;Realme C51&#x27;, 2023, 6.74, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Unisoc T612&#x27;, &#x27;4&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Realme&#x27;, &#x27;Realme C53&#x27;, 2023, 6.74, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Unisoc T612&#x27;, &#x27;6&#x27;, &#x27;128&#x27;),
+  (&#x27;Realme&#x27;, &#x27;Realme C55&#x27;, 2023, 6.72, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G88&#x27;, &#x27;6/8&#x27;, &#x27;64/128/256&#x27;),
+  (&#x27;Realme&#x27;, &#x27;Realme 10&#x27;, 2022, 6.4, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G99&#x27;, &#x27;4/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Realme&#x27;, &#x27;Realme 11&#x27;, 2023, 6.43, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G99&#x27;, &#x27;8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Realme&#x27;, &#x27;Realme Note 50&#x27;, 2024, 6.74, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Unisoc T612&#x27;, &#x27;3/4&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Oppo&#x27;, &#x27;Oppo A17&#x27;, 2022, 6.56, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G35&#x27;, &#x27;4&#x27;, &#x27;64&#x27;),
+  (&#x27;Oppo&#x27;, &#x27;Oppo A18&#x27;, 2023, 6.56, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G85&#x27;, &#x27;4&#x27;, &#x27;64/128&#x27;),
+  (&#x27;Oppo&#x27;, &#x27;Oppo A38&#x27;, 2023, 6.56, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G85&#x27;, &#x27;4/6&#x27;, &#x27;128&#x27;),
+  (&#x27;Oppo&#x27;, &#x27;Oppo A58&#x27;, 2023, 6.72, &#x27;IPS LCD&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G85&#x27;, &#x27;6/8&#x27;, &#x27;128&#x27;),
+  (&#x27;Oppo&#x27;, &#x27;Oppo A78 4G&#x27;, 2023, 6.43, &#x27;AMOLED&#x27;, 5000, &#x27;USB-C&#x27;, &#x27;Helio G99&#x27;, &#x27;8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Honor&#x27;, &#x27;Honor X6a&#x27;, 2023, 6.56, &#x27;IPS LCD&#x27;, 5200, &#x27;USB-C&#x27;, &#x27;Helio G36&#x27;, &#x27;4&#x27;, &#x27;128&#x27;),
+  (&#x27;Honor&#x27;, &#x27;Honor X7a&#x27;, 2023, 6.74, &#x27;IPS LCD&#x27;, 6000, &#x27;USB-C&#x27;, &#x27;Helio G37&#x27;, &#x27;4/6&#x27;, &#x27;128&#x27;),
+  (&#x27;Honor&#x27;, &#x27;Honor X8a&#x27;, 2023, 6.7, &#x27;IPS LCD&#x27;, 4500, &#x27;USB-C&#x27;, &#x27;Helio G88&#x27;, &#x27;6&#x27;, &#x27;128&#x27;),
+  (&#x27;Honor&#x27;, &#x27;Honor X9a&#x27;, 2023, 6.67, &#x27;AMOLED&#x27;, 5100, &#x27;USB-C&#x27;, &#x27;Snapdragon 695&#x27;, &#x27;6/8&#x27;, &#x27;128/256&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 7&#x27;, 2016, 4.7, &#x27;IPS LCD&#x27;, 1960, &#x27;Lightning&#x27;, &#x27;A10 Fusion&#x27;, &#x27;2&#x27;, &#x27;32/128/256&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 7 Plus&#x27;, 2016, 5.5, &#x27;IPS LCD&#x27;, 2900, &#x27;Lightning&#x27;, &#x27;A10 Fusion&#x27;, &#x27;3&#x27;, &#x27;32/128/256&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 8&#x27;, 2017, 4.7, &#x27;IPS LCD&#x27;, 1821, &#x27;Lightning&#x27;, &#x27;A11 Bionic&#x27;, &#x27;2&#x27;, &#x27;64/128/256&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 8 Plus&#x27;, 2017, 5.5, &#x27;IPS LCD&#x27;, 2691, &#x27;Lightning&#x27;, &#x27;A11 Bionic&#x27;, &#x27;3&#x27;, &#x27;64/128/256&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone X&#x27;, 2017, 5.8, &#x27;OLED&#x27;, 2716, &#x27;Lightning&#x27;, &#x27;A11 Bionic&#x27;, &#x27;3&#x27;, &#x27;64/256&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone XR&#x27;, 2018, 6.1, &#x27;IPS LCD&#x27;, 2942, &#x27;Lightning&#x27;, &#x27;A12 Bionic&#x27;, &#x27;3&#x27;, &#x27;64/128/256&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone XS&#x27;, 2018, 5.8, &#x27;OLED&#x27;, 2658, &#x27;Lightning&#x27;, &#x27;A12 Bionic&#x27;, &#x27;4&#x27;, &#x27;64/256/512&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone XS Max&#x27;, 2018, 6.5, &#x27;OLED&#x27;, 3174, &#x27;Lightning&#x27;, &#x27;A12 Bionic&#x27;, &#x27;4&#x27;, &#x27;64/256/512&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 11&#x27;, 2019, 6.1, &#x27;IPS LCD&#x27;, 3110, &#x27;Lightning&#x27;, &#x27;A13 Bionic&#x27;, &#x27;4&#x27;, &#x27;64/128/256&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 11 Pro&#x27;, 2019, 5.8, &#x27;OLED&#x27;, 3046, &#x27;Lightning&#x27;, &#x27;A13 Bionic&#x27;, &#x27;4&#x27;, &#x27;64/256/512&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 11 Pro Max&#x27;, 2019, 6.5, &#x27;OLED&#x27;, 3969, &#x27;Lightning&#x27;, &#x27;A13 Bionic&#x27;, &#x27;4&#x27;, &#x27;64/256/512&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone SE (2020)&#x27;, 2020, 4.7, &#x27;IPS LCD&#x27;, 1821, &#x27;Lightning&#x27;, &#x27;A13 Bionic&#x27;, &#x27;3&#x27;, &#x27;64/128/256&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 12 mini&#x27;, 2020, 5.4, &#x27;OLED&#x27;, 2227, &#x27;Lightning&#x27;, &#x27;A14 Bionic&#x27;, &#x27;4&#x27;, &#x27;64/128/256&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 12&#x27;, 2020, 6.1, &#x27;OLED&#x27;, 2815, &#x27;Lightning&#x27;, &#x27;A14 Bionic&#x27;, &#x27;4&#x27;, &#x27;64/128/256&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 12 Pro&#x27;, 2020, 6.1, &#x27;OLED&#x27;, 2815, &#x27;Lightning&#x27;, &#x27;A14 Bionic&#x27;, &#x27;6&#x27;, &#x27;128/256/512&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 12 Pro Max&#x27;, 2020, 6.7, &#x27;OLED&#x27;, 3687, &#x27;Lightning&#x27;, &#x27;A14 Bionic&#x27;, &#x27;6&#x27;, &#x27;128/256/512&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 13 mini&#x27;, 2021, 5.4, &#x27;OLED&#x27;, 2406, &#x27;Lightning&#x27;, &#x27;A15 Bionic&#x27;, &#x27;4&#x27;, &#x27;128/256/512&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 13&#x27;, 2021, 6.1, &#x27;OLED&#x27;, 3240, &#x27;Lightning&#x27;, &#x27;A15 Bionic&#x27;, &#x27;4&#x27;, &#x27;128/256/512&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 13 Pro&#x27;, 2021, 6.1, &#x27;OLED&#x27;, 3095, &#x27;Lightning&#x27;, &#x27;A15 Bionic&#x27;, &#x27;6&#x27;, &#x27;128/256/512/1024&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 13 Pro Max&#x27;, 2021, 6.7, &#x27;OLED&#x27;, 4352, &#x27;Lightning&#x27;, &#x27;A15 Bionic&#x27;, &#x27;6&#x27;, &#x27;128/256/512/1024&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone SE (2022)&#x27;, 2022, 4.7, &#x27;IPS LCD&#x27;, 2018, &#x27;Lightning&#x27;, &#x27;A15 Bionic&#x27;, &#x27;4&#x27;, &#x27;64/128/256&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 14&#x27;, 2022, 6.1, &#x27;OLED&#x27;, 3279, &#x27;Lightning&#x27;, &#x27;A15 Bionic&#x27;, &#x27;6&#x27;, &#x27;128/256/512&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 14 Plus&#x27;, 2022, 6.7, &#x27;OLED&#x27;, 4325, &#x27;Lightning&#x27;, &#x27;A15 Bionic&#x27;, &#x27;6&#x27;, &#x27;128/256/512&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 14 Pro&#x27;, 2022, 6.1, &#x27;OLED&#x27;, 3200, &#x27;Lightning&#x27;, &#x27;A16 Bionic&#x27;, &#x27;6&#x27;, &#x27;128/256/512/1024&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 14 Pro Max&#x27;, 2022, 6.7, &#x27;OLED&#x27;, 4323, &#x27;Lightning&#x27;, &#x27;A16 Bionic&#x27;, &#x27;6&#x27;, &#x27;128/256/512/1024&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 15&#x27;, 2023, 6.1, &#x27;OLED&#x27;, 3349, &#x27;USB-C&#x27;, &#x27;A16 Bionic&#x27;, &#x27;6&#x27;, &#x27;128/256/512&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 15 Plus&#x27;, 2023, 6.7, &#x27;OLED&#x27;, 4383, &#x27;USB-C&#x27;, &#x27;A16 Bionic&#x27;, &#x27;6&#x27;, &#x27;128/256/512&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 15 Pro&#x27;, 2023, 6.1, &#x27;OLED&#x27;, 3274, &#x27;USB-C&#x27;, &#x27;A17 Pro&#x27;, &#x27;8&#x27;, &#x27;128/256/512/1024&#x27;),
+  (&#x27;Apple&#x27;, &#x27;Apple iPhone 15 Pro Max&#x27;, 2023, 6.7, &#x27;OLED&#x27;, 4422, &#x27;USB-C&#x27;, &#x27;A17 Pro&#x27;, &#x27;8&#x27;, &#x27;256/512/1024&#x27;)
+on conflict do nothing;
+
+-- check: select brand, count(*) from public.phone_models group by brand order by 2 desc;
+</pre></div><h2 id="c">2 — New files (create them)</h2><h4><code>src/pages/shared/PhoneCatalog.jsx</code></h4><p class="n">New page: phone models, specs, parts and prices.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useMemo, useState } from &#x27;react&#x27;
+import { useNavigate } from &#x27;react-router-dom&#x27;
+import { supabase } from &#x27;../../lib/supabaseClient&#x27;
+import { useAuth } from &#x27;../../context/AuthContext&#x27;
+import { t } from &#x27;../../i18n/LanguageContext&#x27;
+
+const PORTS = [&#x27;USB-C&#x27;, &#x27;Lightning&#x27;, &#x27;Micro-USB&#x27;]
+const SCREEN_TYPES = [&#x27;IPS LCD&#x27;, &#x27;PLS LCD&#x27;, &#x27;AMOLED&#x27;, &#x27;Super AMOLED&#x27;, &#x27;Dynamic AMOLED&#x27;, &#x27;OLED&#x27;]
+
+function emptyForm() {
+  return {
+    brand: &#x27;&#x27;, name: &#x27;&#x27;, release_year: &#x27;&#x27;, screen_size: &#x27;&#x27;, screen_type: &#x27;&#x27;, battery_mah: &#x27;&#x27;,
+    charge_port: &#x27;USB-C&#x27;, chipset: &#x27;&#x27;, ram_gb: &#x27;&#x27;, storage_gb: &#x27;&#x27;,
+    market_price_min: &#x27;&#x27;, market_price_max: &#x27;&#x27;, notes: &#x27;&#x27;, specs_verified: false,
+  }
+}
+
+const num = (v) =&gt; (v === &#x27;&#x27; || v == null ? null : Number(v))
+
+function specLine(m) {
+  return [
+    m.screen_size ? m.screen_size + &#x27;&quot;&#x27; : null,
+    m.screen_type,
+    m.battery_mah ? m.battery_mah + &#x27; mAh&#x27; : null,
+    m.charge_port,
+  ].filter(Boolean).join(&#x27; · &#x27;)
+}
+
+function priceText(min, max) {
+  if (min == null) return &#x27;—&#x27;
+  const hasMax = max != null &amp;&amp; Number(max) !== Number(min)
+  return hasMax
+    ? t(&#x27;{price_min} - {price_max} DT&#x27;, { price_min: Number(min).toFixed(2), price_max: Number(max).toFixed(2) })
+    : t(&#x27;{price_min} DT&#x27;, { price_min: Number(min).toFixed(2) })
+}
+
+function SpecRow({ label, value }) {
+  if (value == null || value === &#x27;&#x27;) return null
+  return (
+    &lt;div className=&quot;flex justify-between gap-3 py-1.5 border-b border-[#f0f0ea] last:border-b-0 text-sm&quot;&gt;
+      &lt;span className=&quot;text-[#6b6b6b]&quot;&gt;{label}&lt;/span&gt;
+      &lt;span className=&quot;font-semibold text-[#1a1a1a] text-end&quot;&gt;{value}&lt;/span&gt;
+    &lt;/div&gt;
+  )
+}
+
+export default function PhoneCatalog() {
+  const { profile } = useAuth()
+  const navigate = useNavigate()
+  const isAdmin = [&#x27;admin&#x27;, &#x27;super_admin&#x27;].includes(profile?.role)
+
+  const [models, setModels] = useState([])
+  const [parts, setParts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [search, setSearch] = useState(&#x27;&#x27;)
+  const [brand, setBrand] = useState(&#x27;&#x27;)
+  const [openId, setOpenId] = useState(null)
+
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [form, setForm] = useState(emptyForm())
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState(null)
+
+  useEffect(() =&gt; { load() }, [])
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    const [m, p] = await Promise.all([
+      supabase.from(&#x27;phone_models&#x27;).select(&#x27;*&#x27;).order(&#x27;brand&#x27;, { ascending: true }).order(&#x27;name&#x27;, { ascending: true }),
+      supabase.from(&#x27;part_price_guide&#x27;).select(&#x27;id, device_model, part_type, quality_label, price_min, price_max, buy_price&#x27;),
+    ])
+    if (m.error) setError(m.error.message)
+    else if (p.error) setError(p.error.message)
+    setModels(m.data || [])
+    setParts(p.data || [])
+    setLoading(false)
+  }
+
+  // parts of each model: matched on the model name (not case sensitive)
+  const partsByModel = useMemo(() =&gt; {
+    const map = new Map()
+    for (const r of parts) {
+      const k = (r.device_model || &#x27;&#x27;).trim().toLowerCase()
+      if (!map.has(k)) map.set(k, [])
+      map.get(k).push(r)
+    }
+    return map
+  }, [parts])
+
+  const brands = useMemo(() =&gt; [...new Set(models.map((m) =&gt; m.brand))].sort(), [models])
+
+  const filtered = useMemo(() =&gt; {
+    const q = search.trim().toLowerCase()
+    return models.filter((m) =&gt; {
+      const okText = !q || m.name.toLowerCase().includes(q) || m.brand.toLowerCase().includes(q) || (m.chipset || &#x27;&#x27;).toLowerCase().includes(q)
+      const okBrand = !brand || m.brand === brand
+      return okText &amp;&amp; okBrand
+    })
+  }, [models, search, brand])
+
+  function openAdd() {
+    setEditingId(null)
+    setForm(emptyForm())
+    setFormError(null)
+    setShowForm(true)
+  }
+
+  function openEdit(m) {
+    setEditingId(m.id)
+    setForm({
+      brand: m.brand || &#x27;&#x27;, name: m.name || &#x27;&#x27;, release_year: m.release_year ?? &#x27;&#x27;, screen_size: m.screen_size ?? &#x27;&#x27;,
+      screen_type: m.screen_type || &#x27;&#x27;, battery_mah: m.battery_mah ?? &#x27;&#x27;, charge_port: m.charge_port || &#x27;&#x27;,
+      chipset: m.chipset || &#x27;&#x27;, ram_gb: m.ram_gb || &#x27;&#x27;, storage_gb: m.storage_gb || &#x27;&#x27;,
+      market_price_min: m.market_price_min ?? &#x27;&#x27;, market_price_max: m.market_price_max ?? &#x27;&#x27;,
+      notes: m.notes || &#x27;&#x27;, specs_verified: !!m.specs_verified,
+    })
+    setFormError(null)
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: &#x27;smooth&#x27; })
+  }
+
+  async function submitForm(e) {
+    e.preventDefault()
+    setFormError(null)
+    const min = num(form.market_price_min)
+    const max = num(form.market_price_max)
+    if (!form.brand.trim() || !form.name.trim()) {
+      setFormError(t(&#x27;Remplissez la marque et le nom du modèle&#x27;))
+      return
+    }
+    if (min !== null &amp;&amp; !(min &gt; 0)) { setFormError(t(&#x27;Le prix doit être supérieur à 0&#x27;)); return }
+    if (max !== null &amp;&amp; min === null) { setFormError(t(&#x27;Indiquez d\&#x27;abord le prix « de »&#x27;)); return }
+    if (max !== null &amp;&amp; max &lt; min) { setFormError(t(&#x27;« À » doit être supérieur ou égal à « De »&#x27;)); return }
+    setSaving(true)
+    const payload = {
+      brand: form.brand.trim(),
+      name: form.name.trim(),
+      release_year: num(form.release_year),
+      screen_size: num(form.screen_size),
+      screen_type: form.screen_type.trim() || null,
+      battery_mah: num(form.battery_mah),
+      charge_port: form.charge_port || null,
+      chipset: form.chipset.trim() || null,
+      ram_gb: form.ram_gb.trim() || null,
+      storage_gb: form.storage_gb.trim() || null,
+      market_price_min: min,
+      market_price_max: max,
+      notes: form.notes.trim() || null,
+      specs_verified: !!form.specs_verified,
+    }
+    const { error: err } = editingId
+      ? await supabase.from(&#x27;phone_models&#x27;).update(payload).eq(&#x27;id&#x27;, editingId)
+      : await supabase.from(&#x27;phone_models&#x27;).insert(payload)
+    setSaving(false)
+    if (err) {
+      setFormError(err.code === &#x27;23505&#x27; ? t(&#x27;Ce modèle existe déjà&#x27;) : t(&#x27;Erreur :&#x27;) + &#x27; &#x27; + err.message)
+      return
+    }
+    setShowForm(false)
+    load()
+  }
+
+  async function remove(id) {
+    if (!window.confirm(t(&#x27;Supprimer ce modèle ?&#x27;))) return
+    const { error: err } = await supabase.from(&#x27;phone_models&#x27;).delete().eq(&#x27;id&#x27;, id)
+    if (err) { alert(t(&#x27;Échec :&#x27;) + &#x27; &#x27; + err.message); return }
+    setShowForm(false)
+    load()
+  }
+
+  const goParts = (m, add) =&gt;
+    navigate(&#x27;/price-guide?model=&#x27; + encodeURIComponent(m.name) + (add ? &#x27;&amp;add=1&#x27; : &#x27;&#x27;))
+
+  const inp = &#x27;w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b]&#x27;
+
+  return (
+    &lt;div&gt;
+      &lt;div className=&quot;flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end mb-6 pb-4 border-b border-[#e5e5e5]&quot;&gt;
+        &lt;div&gt;
+          &lt;h1 className=&quot;text-xl font-extrabold text-[#1a1a1a] mb-1&quot;&gt;{t(&#x27;Catalogue téléphones&#x27;)}&lt;/h1&gt;
+          &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;{t(&#x27;Fiches techniques et prix des pièces par modèle&#x27;)}&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;button onClick={showForm ? () =&gt; setShowForm(false) : openAdd}
+          className=&quot;w-full sm:w-auto bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg&quot;&gt;
+          {showForm ? t(&#x27;Annuler&#x27;) : t(&#x27;+ Ajouter un modèle&#x27;)}
+        &lt;/button&gt;
+      &lt;/div&gt;
+
+      &lt;div className=&quot;mb-5&quot;&gt;
+        &lt;input value={search} onChange={(e) =&gt; setSearch(e.target.value)} className={inp + &#x27; mb-3&#x27;}
+          placeholder={t(&#x27;Rechercher un modèle (ex. : A15, Redmi Note 12, iPhone 13)&#x27;)} /&gt;
+        {brands.length &gt; 0 &amp;&amp; (
+          &lt;div className=&quot;flex gap-2 overflow-x-auto -mx-1 px-1&quot;&gt;
+            &lt;button onClick={() =&gt; setBrand(&#x27;&#x27;)}
+              className={`shrink-0 text-xs px-3 py-1.5 rounded-lg border ${!brand ? &#x27;bg-[#e4211b] text-white border-[#e4211b]&#x27; : &#x27;border-[#e5e5e5] text-[#6b6b6b]&#x27;}`}&gt;
+              {t(&#x27;Tout&#x27;)}
+            &lt;/button&gt;
+            {brands.map((b) =&gt; (
+              &lt;button key={b} onClick={() =&gt; setBrand(b === brand ? &#x27;&#x27; : b)}
+                className={`shrink-0 text-xs px-3 py-1.5 rounded-lg border ${brand === b ? &#x27;bg-[#e4211b] text-white border-[#e4211b]&#x27; : &#x27;border-[#e5e5e5] text-[#6b6b6b]&#x27;}`}&gt;
+                {b}
+              &lt;/button&gt;
+            ))}
+          &lt;/div&gt;
+        )}
+      &lt;/div&gt;
+
+      {error &amp;&amp; &lt;p className=&quot;bg-[#fdeaea] text-[#b3170f] text-sm rounded-lg px-4 py-3 mb-4&quot;&gt;{error}&lt;/p&gt;}
+
+      {showForm &amp;&amp; (
+        &lt;form onSubmit={submitForm} className=&quot;bg-white border border-[#e5e5e5] rounded-xl p-4 sm:p-6 mb-6 max-w-lg&quot;&gt;
+          &lt;h3 className=&quot;font-bold text-sm mb-4&quot;&gt;{editingId ? t(&#x27;Modifier le modèle&#x27;) : t(&#x27;Nouveau modèle&#x27;)}&lt;/h3&gt;
+
+          &lt;div className=&quot;grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4&quot;&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Marque&#x27;)}&lt;/label&gt;
+              &lt;input className={inp} list=&quot;brand-options&quot; placeholder=&quot;Samsung&quot; value={form.brand}
+                onChange={(e) =&gt; setForm({ ...form, brand: e.target.value })} /&gt;
+              &lt;datalist id=&quot;brand-options&quot;&gt;{brands.map((b) =&gt; &lt;option key={b} value={b} /&gt;)}&lt;/datalist&gt;
+            &lt;/div&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Nom du modèle&#x27;)}&lt;/label&gt;
+              &lt;input className={inp} placeholder=&quot;Samsung Galaxy A15&quot; value={form.name}
+                onChange={(e) =&gt; setForm({ ...form, name: e.target.value })} /&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+
+          &lt;div className=&quot;grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4&quot;&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Année&#x27;)}&lt;/label&gt;
+              &lt;input type=&quot;number&quot; className={inp} value={form.release_year}
+                onChange={(e) =&gt; setForm({ ...form, release_year: e.target.value })} /&gt;
+            &lt;/div&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Taille de l\&#x27;écran (pouces)&#x27;)}&lt;/label&gt;
+              &lt;input type=&quot;number&quot; step=&quot;0.01&quot; className={inp} value={form.screen_size}
+                onChange={(e) =&gt; setForm({ ...form, screen_size: e.target.value })} /&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+
+          &lt;div className=&quot;grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4&quot;&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Type d\&#x27;écran&#x27;)}&lt;/label&gt;
+              &lt;input className={inp} list=&quot;screen-type-options&quot; value={form.screen_type}
+                onChange={(e) =&gt; setForm({ ...form, screen_type: e.target.value })} /&gt;
+              &lt;datalist id=&quot;screen-type-options&quot;&gt;{SCREEN_TYPES.map((s) =&gt; &lt;option key={s} value={s} /&gt;)}&lt;/datalist&gt;
+            &lt;/div&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Batterie (mAh)&#x27;)}&lt;/label&gt;
+              &lt;input type=&quot;number&quot; className={inp} value={form.battery_mah}
+                onChange={(e) =&gt; setForm({ ...form, battery_mah: e.target.value })} /&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+
+          &lt;div className=&quot;grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4&quot;&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Port de charge&#x27;)}&lt;/label&gt;
+              &lt;select className={inp} value={form.charge_port}
+                onChange={(e) =&gt; setForm({ ...form, charge_port: e.target.value })}&gt;
+                &lt;option value=&quot;&quot;&gt;—&lt;/option&gt;
+                {PORTS.map((p) =&gt; &lt;option key={p} value={p}&gt;{p}&lt;/option&gt;)}
+              &lt;/select&gt;
+            &lt;/div&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Processeur&#x27;)}&lt;/label&gt;
+              &lt;input className={inp} value={form.chipset}
+                onChange={(e) =&gt; setForm({ ...form, chipset: e.target.value })} /&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+
+          &lt;div className=&quot;grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4&quot;&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;RAM (Go)&#x27;)}&lt;/label&gt;
+              &lt;input className={inp} placeholder=&quot;4/6/8&quot; value={form.ram_gb}
+                onChange={(e) =&gt; setForm({ ...form, ram_gb: e.target.value })} /&gt;
+            &lt;/div&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Stockage (Go)&#x27;)}&lt;/label&gt;
+              &lt;input className={inp} placeholder=&quot;64/128/256&quot; value={form.storage_gb}
+                onChange={(e) =&gt; setForm({ ...form, storage_gb: e.target.value })} /&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+
+          &lt;div className=&quot;grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4&quot;&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Prix du téléphone — de (DT)&#x27;)}&lt;/label&gt;
+              &lt;input type=&quot;number&quot; step=&quot;0.001&quot; className={inp} value={form.market_price_min}
+                onChange={(e) =&gt; setForm({ ...form, market_price_min: e.target.value })} /&gt;
+            &lt;/div&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;À (DT) — facultatif&#x27;)}&lt;/label&gt;
+              &lt;input type=&quot;number&quot; step=&quot;0.001&quot; className={inp} value={form.market_price_max}
+                onChange={(e) =&gt; setForm({ ...form, market_price_max: e.target.value })} /&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+
+          &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Remarques (facultatif)&#x27;)}&lt;/label&gt;
+          &lt;input className={inp + &#x27; mb-4&#x27;} value={form.notes}
+            onChange={(e) =&gt; setForm({ ...form, notes: e.target.value })} /&gt;
+
+          &lt;label className=&quot;flex items-center gap-2 text-sm mb-4&quot;&gt;
+            &lt;input type=&quot;checkbox&quot; checked={form.specs_verified}
+              onChange={(e) =&gt; setForm({ ...form, specs_verified: e.target.checked })} /&gt;
+            {t(&#x27;Fiche vérifiée&#x27;)}
+          &lt;/label&gt;
+
+          {formError &amp;&amp; &lt;p className=&quot;text-[#b3170f] text-sm mb-3&quot;&gt;{formError}&lt;/p&gt;}
+          &lt;div className=&quot;flex gap-2&quot;&gt;
+            &lt;button disabled={saving} className=&quot;bg-[#e4211b] text-white font-semibold text-sm px-5 py-2.5 rounded-lg disabled:opacity-60&quot;&gt;
+              {saving ? &#x27;...&#x27; : t(&#x27;Enregistrer&#x27;)}
+            &lt;/button&gt;
+            {editingId &amp;&amp; isAdmin &amp;&amp; (
+              &lt;button type=&quot;button&quot; onClick={() =&gt; remove(editingId)} className=&quot;text-[#b3170f] text-sm px-4 py-2.5&quot;&gt;
+                {t(&#x27;Supprimer&#x27;)}
+              &lt;/button&gt;
+            )}
+          &lt;/div&gt;
+        &lt;/form&gt;
+      )}
+
+      {loading ? (
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;&lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;{t(&#x27;Chargement...&#x27;)}&lt;/p&gt;&lt;/div&gt;
+      ) : filtered.length === 0 ? (
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;
+          &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;
+            {models.length === 0 ? t(&#x27;Aucun modèle pour le moment.&#x27;) : t(&#x27;Aucun résultat pour cette recherche.&#x27;)}
+          &lt;/p&gt;
+        &lt;/div&gt;
+      ) : (
+        &lt;div className=&quot;flex flex-col gap-3&quot;&gt;
+          {filtered.map((m) =&gt; {
+            const isOpen = openId === m.id
+            const mp = [...(partsByModel.get(m.name.trim().toLowerCase()) || [])]
+              .sort((a, b) =&gt; a.part_type.localeCompare(b.part_type) || Number(a.price_min) - Number(b.price_min))
+            return (
+              &lt;div key={m.id} className=&quot;bg-white border border-[#e5e5e5] rounded-xl overflow-hidden&quot;&gt;
+                &lt;button type=&quot;button&quot; onClick={() =&gt; setOpenId(isOpen ? null : m.id)}
+                  className=&quot;w-full text-start px-4 py-3 flex items-center justify-between gap-3&quot;&gt;
+                  &lt;div className=&quot;min-w-0&quot;&gt;
+                    &lt;p className=&quot;font-bold text-sm text-[#1a1a1a]&quot;&gt;{m.name}&lt;/p&gt;
+                    &lt;p className=&quot;text-xs text-[#6b6b6b] mt-0.5&quot;&gt;{specLine(m)}&lt;/p&gt;
+                  &lt;/div&gt;
+                  &lt;div className=&quot;shrink-0 flex items-center gap-2&quot;&gt;
+                    {mp.length &gt; 0 &amp;&amp; (
+                      &lt;span className=&quot;bg-[#eefaf1] text-[#1f8a4c] text-[11px] font-bold px-2 py-0.5 rounded-full&quot;&gt;
+                        {t(&#x27;{n} pièces&#x27;, { n: mp.length })}
+                      &lt;/span&gt;
+                    )}
+                    &lt;span className=&quot;text-[#9a9a9a] text-xs&quot;&gt;{isOpen ? &#x27;▲&#x27; : &#x27;▼&#x27;}&lt;/span&gt;
+                  &lt;/div&gt;
+                &lt;/button&gt;
+
+                {isOpen &amp;&amp; (
+                  &lt;div className=&quot;px-4 pb-4 border-t border-[#f0f0ea]&quot;&gt;
+                    &lt;div className=&quot;pt-2 mb-3&quot;&gt;
+                      &lt;SpecRow label={t(&#x27;Marque&#x27;)} value={m.brand} /&gt;
+                      &lt;SpecRow label={t(&#x27;Année&#x27;)} value={m.release_year} /&gt;
+                      &lt;SpecRow label={t(&#x27;Écran&#x27;)} value={m.screen_size ? m.screen_size + &#x27;&quot; &#x27; + (m.screen_type || &#x27;&#x27;) : m.screen_type} /&gt;
+                      &lt;SpecRow label={t(&#x27;Batterie&#x27;)} value={m.battery_mah ? m.battery_mah + &#x27; mAh&#x27; : null} /&gt;
+                      &lt;SpecRow label={t(&#x27;Port de charge&#x27;)} value={m.charge_port} /&gt;
+                      &lt;SpecRow label={t(&#x27;Processeur&#x27;)} value={m.chipset} /&gt;
+                      &lt;SpecRow label={t(&#x27;RAM (Go)&#x27;)} value={m.ram_gb} /&gt;
+                      &lt;SpecRow label={t(&#x27;Stockage (Go)&#x27;)} value={m.storage_gb} /&gt;
+                      &lt;SpecRow label={t(&#x27;Prix du téléphone&#x27;)} value={m.market_price_min != null ? priceText(m.market_price_min, m.market_price_max) : null} /&gt;
+                      &lt;SpecRow label={t(&#x27;Remarques&#x27;)} value={m.notes} /&gt;
+                    &lt;/div&gt;
+                    &lt;p className={`text-xs mb-3 ${m.specs_verified ? &#x27;text-[#1f8a4c]&#x27; : &#x27;text-[#b36b00]&#x27;}`}&gt;
+                      {m.specs_verified ? t(&#x27;✅ Fiche vérifiée&#x27;) : t(&#x27;⚠️ Fiche à vérifier&#x27;)}
+                    &lt;/p&gt;
+
+                    &lt;h4 className=&quot;text-xs font-bold text-[#e4211b] mb-2&quot;&gt;{t(&#x27;Pièces et prix&#x27;)}&lt;/h4&gt;
+                    {mp.length === 0 ? (
+                      &lt;p className=&quot;text-xs text-[#6b6b6b] mb-3&quot;&gt;{t(&#x27;Aucune pièce enregistrée pour ce modèle.&#x27;)}&lt;/p&gt;
+                    ) : (
+                      &lt;div className=&quot;mb-3&quot;&gt;
+                        {mp.map((r) =&gt; (
+                          &lt;div key={r.id} className=&quot;flex justify-between items-center gap-3 py-1.5 border-b border-[#f0f0ea] last:border-b-0 text-sm&quot;&gt;
+                            &lt;span className=&quot;min-w-0&quot;&gt;
+                              {r.part_type} — {r.quality_label}
+                              {r.buy_price != null &amp;&amp; (
+                                &lt;span className=&quot;block text-[11px] text-[#9a9a9a]&quot;&gt;{t(&#x27;Achat : {price} DT&#x27;, { price: Number(r.buy_price).toFixed(2) })}&lt;/span&gt;
+                              )}
+                            &lt;/span&gt;
+                            &lt;span className=&quot;bg-[#eefaf1] text-[#1f8a4c] font-bold text-xs whitespace-nowrap px-2.5 py-1 rounded-full&quot;&gt;
+                              {priceText(r.price_min, r.price_max)}
+                            &lt;/span&gt;
+                          &lt;/div&gt;
+                        ))}
+                      &lt;/div&gt;
+                    )}
+
+                    &lt;div className=&quot;flex flex-wrap gap-2&quot;&gt;
+                      &lt;button onClick={() =&gt; goParts(m, true)}
+                        className=&quot;bg-[#e4211b] text-white text-xs font-semibold px-3.5 py-2 rounded-lg&quot;&gt;
+                        {t(&#x27;+ Ajouter une pièce&#x27;)}
+                      &lt;/button&gt;
+                      &lt;button onClick={() =&gt; goParts(m, false)}
+                        className=&quot;text-xs text-[#6b6b6b] border border-[#e5e5e5] rounded-lg px-3.5 py-2&quot;&gt;
+                        {t(&#x27;💲 Voir dans le guide des prix&#x27;)}
+                      &lt;/button&gt;
+                      &lt;button onClick={() =&gt; openEdit(m)}
+                        className=&quot;text-xs text-[#6b6b6b] border border-[#e5e5e5] rounded-lg px-3.5 py-2&quot;&gt;
+                        {t(&#x27;✏️ Modifier la fiche&#x27;)}
+                      &lt;/button&gt;
+                    &lt;/div&gt;
+                  &lt;/div&gt;
+                )}
+              &lt;/div&gt;
+            )
+          })}
+        &lt;/div&gt;
+      )}
+    &lt;/div&gt;
+  )
+}
+</pre></div>
+<h4><code>src/lib/usePhoneModels.js</code></h4><p class="n">Helper: list of model names for the autocomplete.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useState } from &#x27;react&#x27;
+import { supabase } from &#x27;./supabaseClient&#x27;
+
+// The names of the phone models in the catalogue (Catalogue téléphones).
+// Used to autocomplete the &quot;device model&quot; field when receiving a device.
+export function usePhoneModelNames() {
+  const [names, setNames] = useState([])
+  useEffect(() =&gt; {
+    let alive = true
+    supabase
+      .from(&#x27;phone_models&#x27;)
+      .select(&#x27;name&#x27;)
+      .order(&#x27;name&#x27;)
+      .then(({ data }) =&gt; {
+        if (alive) setNames((data || []).map((r) =&gt; r.name))
+      })
+    return () =&gt; { alive = false }
+  }, [])
+  return names
+}
+</pre></div>
+<h4><code>src/i18n/en_catalog.js</code></h4><p class="n">English texts of the catalogue.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>// English catalogue dictionary: texts of the Phone catalogue and of the new Price guide features.
+// Merged with en.js in LanguageContext.jsx. The KEY is the French text.
+const enCatalog = {
+  &quot;+ Ajouter un modèle&quot;: &quot;+ Add a model&quot;,
+  &quot;+ Ajouter une pièce&quot;: &quot;+ Add a part&quot;,
+  &quot;Achat : {price} DT&quot;: &quot;Buying price: {price} TND&quot;,
+  &quot;Année&quot;: &quot;Year&quot;,
+  &quot;Aucun changement enregistré.&quot;: &quot;No change recorded.&quot;,
+  &quot;Aucun modèle pour le moment.&quot;: &quot;No model yet.&quot;,
+  &quot;Aucune pièce enregistrée pour ce modèle.&quot;: &quot;No part saved for this model.&quot;,
+  &quot;Batterie (mAh)&quot;: &quot;Battery (mAh)&quot;,
+  &quot;Catalogue téléphones&quot;: &quot;Phone catalogue&quot;,
+  &quot;Ce modèle existe déjà&quot;: &quot;This model already exists&quot;,
+  &quot;Ce que la pièce vous coûte&quot;: &quot;What the part costs you&quot;,
+  &quot;Copie&quot;: &quot;Copy&quot;,
+  &quot;Copie 1er choix&quot;: &quot;Copy (1st grade)&quot;,
+  &quot;Fiche vérifiée&quot;: &quot;Sheet verified&quot;,
+  &quot;Fiches techniques et prix des pièces par modèle&quot;: &quot;Specs and part prices for each model&quot;,
+  &quot;Historique des prix&quot;: &quot;Price history&quot;,
+  &quot;Indiquez d&#x27;abord le prix « de »&quot;: &quot;Enter the « from » price first&quot;,
+  &quot;Le prix d&#x27;achat est invalide&quot;: &quot;The buying price is not valid&quot;,
+  &quot;Le prix doit être supérieur à 0&quot;: &quot;The price must be above 0&quot;,
+  &quot;Marge : {price} DT&quot;: &quot;Margin: {price} TND&quot;,
+  &quot;Marque&quot;: &quot;Brand&quot;,
+  &quot;Modifier le modèle&quot;: &quot;Edit the model&quot;,
+  &quot;Nom du modèle&quot;: &quot;Model name&quot;,
+  &quot;Nouveau modèle&quot;: &quot;New model&quot;,
+  &quot;OLED&quot;: &quot;OLED&quot;,
+  &quot;Original&quot;: &quot;Original&quot;,
+  &quot;Pièces et prix&quot;: &quot;Parts and prices&quot;,
+  &quot;Prix d&#x27;achat (DT) — facultatif&quot;: &quot;Buying price (TND) — optional&quot;,
+  &quot;Prix du téléphone&quot;: &quot;Phone price&quot;,
+  &quot;Prix du téléphone — de (DT)&quot;: &quot;Phone price — from (TND)&quot;,
+  &quot;Processeur&quot;: &quot;Processor&quot;,
+  &quot;RAM (Go)&quot;: &quot;RAM (GB)&quot;,
+  &quot;Rechercher un modèle (ex. : A15, Redmi Note 12, iPhone 13)&quot;: &quot;Search a model (e.g. A15, Redmi Note 12, iPhone 13)&quot;,
+  &quot;Remarques&quot;: &quot;Notes&quot;,
+  &quot;Remplissez la marque et le nom du modèle&quot;: &quot;Fill in the brand and the model name&quot;,
+  &quot;Stockage (Go)&quot;: &quot;Storage (GB)&quot;,
+  &quot;Supprimer ce modèle ?&quot;: &quot;Delete this model?&quot;,
+  &quot;Taille de l&#x27;écran (pouces)&quot;: &quot;Screen size (inches)&quot;,
+  &quot;Type d&#x27;écran&quot;: &quot;Screen type&quot;,
+  &quot;{date} · {name} : {old} → {new}&quot;: &quot;{date} · {name}: {old} → {new}&quot;,
+  &quot;{n} pièces&quot;: &quot;{n} parts&quot;,
+  &quot;⚠️ Fiche à vérifier&quot;: &quot;⚠️ Sheet to check&quot;,
+  &quot;⚠️ À revérifier&quot;: &quot;⚠️ Check again&quot;,
+  &quot;✅ Fiche vérifiée&quot;: &quot;✅ Sheet verified&quot;,
+  &quot;✏️ Modifier la fiche&quot;: &quot;✏️ Edit the sheet&quot;,
+  &quot;💲 Voir dans le guide des prix&quot;: &quot;💲 See in the price guide&quot;,
+}
+
+export default enCatalog
+</pre></div>
+<h4><code>src/i18n/ar_catalog.js</code></h4><p class="n">Arabic texts of the catalogue.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>// Arabic catalogue dictionary: texts of the Phone catalogue and of the new Price guide features.
+// Merged with ar.js in LanguageContext.jsx. The KEY is the French text.
+const arCatalog = {
+  &quot;+ Ajouter un modèle&quot;: &quot;+ إضافة موديل&quot;,
+  &quot;+ Ajouter une pièce&quot;: &quot;+ إضافة قطعة&quot;,
+  &quot;Achat : {price} DT&quot;: &quot;سعر الشراء: {price} د.ت&quot;,
+  &quot;Année&quot;: &quot;السنة&quot;,
+  &quot;Aucun changement enregistré.&quot;: &quot;ما فما حتى تغيير مسجّل.&quot;,
+  &quot;Aucun modèle pour le moment.&quot;: &quot;ما فما حتى موديل توّا.&quot;,
+  &quot;Aucune pièce enregistrée pour ce modèle.&quot;: &quot;ما فما حتى قطعة مسجّلة لهذا الموديل.&quot;,
+  &quot;Batterie (mAh)&quot;: &quot;البطارية (مللي أمبير)&quot;,
+  &quot;Catalogue téléphones&quot;: &quot;كتالوج الهواتف&quot;,
+  &quot;Ce modèle existe déjà&quot;: &quot;هذا الموديل موجود من قبل&quot;,
+  &quot;Ce que la pièce vous coûte&quot;: &quot;كم تكلّفك القطعة&quot;,
+  &quot;Copie&quot;: &quot;كوبي&quot;,
+  &quot;Copie 1er choix&quot;: &quot;كوبي درجة أولى&quot;,
+  &quot;Fiche vérifiée&quot;: &quot;البطاقة مراجَعة&quot;,
+  &quot;Fiches techniques et prix des pièces par modèle&quot;: &quot;المواصفات وأسعار القطع لكل موديل&quot;,
+  &quot;Historique des prix&quot;: &quot;تاريخ الأسعار&quot;,
+  &quot;Indiquez d&#x27;abord le prix « de »&quot;: &quot;أدخل سعر « من » أولاً&quot;,
+  &quot;Le prix d&#x27;achat est invalide&quot;: &quot;سعر الشراء غير صالح&quot;,
+  &quot;Le prix doit être supérieur à 0&quot;: &quot;يجب أن يكون السعر أكبر من 0&quot;,
+  &quot;Marge : {price} DT&quot;: &quot;الربح: {price} د.ت&quot;,
+  &quot;Marque&quot;: &quot;الماركة&quot;,
+  &quot;Modifier le modèle&quot;: &quot;تعديل الموديل&quot;,
+  &quot;Nom du modèle&quot;: &quot;اسم الموديل&quot;,
+  &quot;Nouveau modèle&quot;: &quot;موديل جديد&quot;,
+  &quot;OLED&quot;: &quot;OLED&quot;,
+  &quot;Original&quot;: &quot;أصلي&quot;,
+  &quot;Pièces et prix&quot;: &quot;القطع والأسعار&quot;,
+  &quot;Prix d&#x27;achat (DT) — facultatif&quot;: &quot;سعر الشراء (د.ت) — اختياري&quot;,
+  &quot;Prix du téléphone&quot;: &quot;سعر الهاتف&quot;,
+  &quot;Prix du téléphone — de (DT)&quot;: &quot;سعر الهاتف — من (د.ت)&quot;,
+  &quot;Processeur&quot;: &quot;المعالج&quot;,
+  &quot;RAM (Go)&quot;: &quot;الرام (Go)&quot;,
+  &quot;Rechercher un modèle (ex. : A15, Redmi Note 12, iPhone 13)&quot;: &quot;ابحث عن موديل (مثلاً: A15, Redmi Note 12, iPhone 13)&quot;,
+  &quot;Remarques&quot;: &quot;ملاحظات&quot;,
+  &quot;Remplissez la marque et le nom du modèle&quot;: &quot;عمّر الماركة واسم الموديل&quot;,
+  &quot;Stockage (Go)&quot;: &quot;التخزين (Go)&quot;,
+  &quot;Supprimer ce modèle ?&quot;: &quot;تفسخ هذا الموديل؟&quot;,
+  &quot;Taille de l&#x27;écran (pouces)&quot;: &quot;حجم الشاشة (بوصة)&quot;,
+  &quot;Type d&#x27;écran&quot;: &quot;نوع الشاشة&quot;,
+  &quot;{date} · {name} : {old} → {new}&quot;: &quot;{date} · {name}: {old} ← {new}&quot;,
+  &quot;{n} pièces&quot;: &quot;{n} قطع&quot;,
+  &quot;⚠️ Fiche à vérifier&quot;: &quot;⚠️ البطاقة تحتاج مراجعة&quot;,
+  &quot;⚠️ À revérifier&quot;: &quot;⚠️ أعد التحقق&quot;,
+  &quot;✅ Fiche vérifiée&quot;: &quot;✅ البطاقة مراجَعة&quot;,
+  &quot;✏️ Modifier la fiche&quot;: &quot;✏️ تعديل البطاقة&quot;,
+  &quot;💲 Voir dans le guide des prix&quot;: &quot;💲 شوف في دليل الأسعار&quot;,
+}
+
+export default arCatalog
+</pre></div>
+<h2 id="d">3 — Updated files (6) — replace each whole file</h2><h4><code>src/pages/shared/PriceGuide.jsx</code></h4><p class="n">Changes: all 3 roles can edit, buying price, margin, history, « check again » badge, quality shortcuts, model autocomplete, opens from the catalogue. Updated file: select everything in your current file, delete it, paste this one.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useMemo, useState } from &#x27;react&#x27;
+import { useSearchParams } from &#x27;react-router-dom&#x27;
+import { supabase } from &#x27;../../lib/supabaseClient&#x27;
+import { useAuth } from &#x27;../../context/AuthContext&#x27;
+import { t, getLocale } from &#x27;../../i18n/LanguageContext&#x27;
+import { usePhoneModelNames } from &#x27;../../lib/usePhoneModels&#x27;
+
+// Common part types shown as quick filter chips + suggestions in the form.
+// Free text is still allowed (e.g. &quot;بورت شحن&quot;) — this list is just a shortcut.
+const COMMON_PARTS = [t(&#x27;Écran&#x27;), t(&#x27;Batterie&#x27;), t(&#x27;Écouteur&#x27;), t(&#x27;Caméra&#x27;), t(&#x27;Port de charge&#x27;), t(&#x27;Vitre arrière&#x27;)]
+// part names are typed by the team, so the icon is found for the Arabic (old data), French and English words
+const PART_ICONS = {
+  &#x27;شاشة&#x27;: &#x27;🖥️&#x27;, &#x27;بطارية&#x27;: &#x27;🔋&#x27;, &#x27;سماعة&#x27;: &#x27;🔊&#x27;, &#x27;كاميرا&#x27;: &#x27;📷&#x27;, &#x27;بورت شحن&#x27;: &#x27;🔌&#x27;, &#x27;زجاج خلفي&#x27;: &#x27;🪟&#x27;,
+  &#x27;Écran&#x27;: &#x27;🖥️&#x27;, &#x27;Batterie&#x27;: &#x27;🔋&#x27;, &#x27;Écouteur&#x27;: &#x27;🔊&#x27;, &#x27;Caméra&#x27;: &#x27;📷&#x27;, &#x27;Port de charge&#x27;: &#x27;🔌&#x27;, &#x27;Vitre arrière&#x27;: &#x27;🪟&#x27;,
+  &#x27;Screen&#x27;: &#x27;🖥️&#x27;, &#x27;Battery&#x27;: &#x27;🔋&#x27;, &#x27;Earpiece&#x27;: &#x27;🔊&#x27;, &#x27;Camera&#x27;: &#x27;📷&#x27;, &#x27;Charging port&#x27;: &#x27;🔌&#x27;, &#x27;Back glass&#x27;: &#x27;🪟&#x27;,
+}
+const partIcon = (type) =&gt; PART_ICONS[type] || &#x27;🔧&#x27;
+
+// quality shortcuts: a screen can have 2, 3 or 4 qualities, each with its own price
+const QUALITY_SUGGESTIONS = [t(&#x27;Original&#x27;), t(&#x27;OLED&#x27;), t(&#x27;Copie 1er choix&#x27;), t(&#x27;Copie&#x27;)]
+// prices change often: a price not touched for 7 days gets a &quot;check again&quot; badge
+const STALE_DAYS = 7
+const isStale = (r) =&gt; r.updated_at &amp;&amp; Date.now() - new Date(r.updated_at).getTime() &gt; STALE_DAYS * 86400000
+const fmtP = (min, max) =&gt;
+  min == null ? &#x27;—&#x27; : max != null &amp;&amp; Number(max) !== Number(min) ? Number(min).toFixed(2) + &#x27;-&#x27; + Number(max).toFixed(2) : Number(min).toFixed(2)
+
+function priceLabel(r) {
+  const hasMax = r.price_max != null &amp;&amp; Number(r.price_max) !== Number(r.price_min)
+  return hasMax
+    ? t(&#x27;{price_min} - {price_max} DT&#x27;, { price_min: Number(r.price_min).toFixed(2), price_max: Number(r.price_max).toFixed(2) })
+    : t(&#x27;{price_min} DT&#x27;, { price_min: Number(r.price_min).toFixed(2) })
+}
+
+export default function PriceGuide() {
+  const { user, profile } = useAuth()
+  // All three roles (admin, comptoir, technicien) can add / edit / delete prices.
+  const canEdit = [&#x27;admin&#x27;, &#x27;super_admin&#x27;, &#x27;technicien&#x27;, &#x27;comptoir&#x27;].includes(profile?.role)
+  const phoneModels = usePhoneModelNames()
+  const [params] = useSearchParams()
+
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [search, setSearch] = useState(params.get(&#x27;model&#x27;) || &#x27;&#x27;)
+  const [partFilter, setPartFilter] = useState(&#x27;&#x27;)
+
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [form, setForm] = useState(emptyForm())
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState(null)
+  const [history, setHistory] = useState([])
+
+  function emptyForm() {
+    return { device_model: &#x27;&#x27;, part_type: &#x27;&#x27;, quality_label: &#x27;&#x27;, price_min: &#x27;&#x27;, price_max: &#x27;&#x27;, buy_price: &#x27;&#x27;, notes: &#x27;&#x27; }
+  }
+
+  useEffect(() =&gt; { load() }, [])
+
+  // coming from the phone catalogue (&quot;+ Ajouter une pièce&quot;): open the form with the model filled in
+  useEffect(() =&gt; {
+    const m = params.get(&#x27;model&#x27;)
+    if (m &amp;&amp; params.get(&#x27;add&#x27;) === &#x27;1&#x27; &amp;&amp; canEdit) {
+      setEditingId(null)
+      setForm({ ...emptyForm(), device_model: m })
+      setShowForm(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    // two foreign keys to profiles (created_by / updated_by) -&gt; name the one we want
+    const { data, error: e } = await supabase
+      .from(&#x27;part_price_guide&#x27;)
+      .select(
+        &#x27;id, device_model, part_type, quality_label, price_min, price_max, buy_price, notes, updated_at, &#x27; +
+        &#x27;profiles!part_price_guide_updated_by_fkey(full_name)&#x27;
+      )
+      .order(&#x27;device_model&#x27;, { ascending: true })
+      .order(&#x27;part_type&#x27;, { ascending: true })
+      .order(&#x27;price_min&#x27;, { ascending: true })
+    if (e) setError(e.message)
+    setRows(data || [])
+    setLoading(false)
+  }
+
+  // Search box filters by device model OR part type OR quality label — all client-side,
+  // since the whole guide is small enough to load once and filter instantly as you type.
+  const filtered = useMemo(() =&gt; {
+    const q = search.trim().toLowerCase()
+    return rows.filter((r) =&gt; {
+      const matchesText =
+        !q ||
+        r.device_model.toLowerCase().includes(q) ||
+        r.part_type.toLowerCase().includes(q) ||
+        r.quality_label.toLowerCase().includes(q)
+      const matchesPart = !partFilter || r.part_type === partFilter
+      return matchesText &amp;&amp; matchesPart
+    })
+  }, [rows, search, partFilter])
+
+  // group by device model so all rows for &quot;iPhone 13&quot; (screen x3, battery...) sit together
+  const grouped = useMemo(() =&gt; {
+    const map = new Map()
+    for (const r of filtered) {
+      if (!map.has(r.device_model)) map.set(r.device_model, [])
+      map.get(r.device_model).push(r)
+    }
+    return [...map.entries()]
+  }, [filtered])
+
+  const partTypesInUse = useMemo(
+    () =&gt; [...new Set(rows.map((r) =&gt; r.part_type))].sort(),
+    [rows]
+  )
+
+  async function loadHistory(guideId) {
+    const { data } = await supabase
+      .from(&#x27;part_price_history&#x27;)
+      .select(&#x27;id, old_price_min, old_price_max, old_buy_price, new_price_min, new_price_max, new_buy_price, changed_at, profiles(full_name)&#x27;)
+      .eq(&#x27;guide_id&#x27;, guideId)
+      .order(&#x27;changed_at&#x27;, { ascending: false })
+      .limit(6)
+    setHistory(data || [])
+  }
+
+  function openAdd() {
+    setEditingId(null)
+    setHistory([])
+    setForm(emptyForm())
+    setFormError(null)
+    setShowForm(true)
+  }
+
+  function openEdit(r) {
+    setEditingId(r.id)
+    setForm({
+      device_model: r.device_model, part_type: r.part_type, quality_label: r.quality_label,
+      price_min: r.price_min, price_max: r.price_max ?? &#x27;&#x27;, buy_price: r.buy_price ?? &#x27;&#x27;, notes: r.notes || &#x27;&#x27;,
+    })
+    setFormError(null)
+    setHistory([])
+    loadHistory(r.id)
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: &#x27;smooth&#x27; })
+  }
+
+  async function submitForm(e) {
+    e.preventDefault()
+    setFormError(null)
+    const min = Number(form.price_min)
+    const max = form.price_max === &#x27;&#x27; ? null : Number(form.price_max)
+    const buy = form.buy_price === &#x27;&#x27; ? null : Number(form.buy_price)
+    if (!form.device_model.trim() || !form.part_type.trim() || !form.quality_label.trim() || min &lt;= 0) {
+      setFormError(t(&#x27;Remplissez le modèle, le type de pièce, la qualité et au moins le prix « de »&#x27;))
+      return
+    }
+    if (max !== null &amp;&amp; max &lt; min) {
+      setFormError(t(&#x27;« À » doit être supérieur ou égal à « De »&#x27;))
+      return
+    }
+    if (buy !== null &amp;&amp; !(buy &gt;= 0)) {
+      setFormError(t(&#x27;Le prix d\&#x27;achat est invalide&#x27;))
+      return
+    }
+    setSaving(true)
+    const payload = {
+      device_model: form.device_model.trim(),
+      part_type: form.part_type.trim(),
+      quality_label: form.quality_label.trim(),
+      price_min: min,
+      price_max: max,
+      buy_price: buy,
+      notes: form.notes.trim() || null,
+    }
+    const { error: err } = editingId
+      ? await supabase.from(&#x27;part_price_guide&#x27;).update(payload).eq(&#x27;id&#x27;, editingId)
+      : await supabase.from(&#x27;part_price_guide&#x27;).insert({ ...payload, created_by: user.id })
+    setSaving(false)
+    if (err) { setFormError(t(&#x27;Erreur :&#x27;) + &#x27; &#x27; + err.message); return }
+    setShowForm(false)
+    load()
+  }
+
+  async function remove(id) {
+    if (!window.confirm(t(&#x27;Supprimer définitivement ce prix ?&#x27;))) return
+    const { error: err } = await supabase.from(&#x27;part_price_guide&#x27;).delete().eq(&#x27;id&#x27;, id)
+    if (err) { alert(t(&#x27;Échec :&#x27;) + &#x27; &#x27; + err.message); return }
+    load()
+  }
+
+  const inp = &#x27;w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b]&#x27;
+
+  function EditedBy({ r }) {
+    if (!r.updated_at) return null
+    return (
+      &lt;div className=&quot;mt-1&quot;&gt;
+        {r.buy_price != null &amp;&amp; (
+          &lt;p className=&quot;text-[11px] text-[#6b6b6b]&quot;&gt;
+            {t(&#x27;Achat : {price} DT&#x27;, { price: Number(r.buy_price).toFixed(2) })}
+            {&#x27; · &#x27;}
+            {t(&#x27;Marge : {price} DT&#x27;, { price: (Number(r.price_min) - Number(r.buy_price)).toFixed(2) })}
+          &lt;/p&gt;
+        )}
+        &lt;p className=&quot;text-[10px] text-[#9a9a9a]&quot;&gt;
+          {t(&#x27;Dernière modification&#x27;)} : {r.profiles?.full_name || &#x27;—&#x27;} · {new Date(r.updated_at).toLocaleDateString(getLocale())}
+          {isStale(r) &amp;&amp; &lt;span className=&quot;ms-1.5 bg-[#fff4e0] text-[#b36b00] font-semibold px-1.5 py-0.5 rounded&quot;&gt;{t(&#x27;⚠️ À revérifier&#x27;)}&lt;/span&gt;}
+        &lt;/p&gt;
+      &lt;/div&gt;
+    )
+  }
+
+  return (
+    &lt;div&gt;
+      &lt;div className=&quot;flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end mb-6 pb-4 border-b border-[#e5e5e5]&quot;&gt;
+        &lt;div&gt;
+          &lt;h1 className=&quot;text-xl font-extrabold text-[#1a1a1a] mb-1&quot;&gt;{t(&#x27;Guide des prix&#x27;)}&lt;/h1&gt;
+          &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;{t(&#x27;Prix estimatifs (de - à) selon le modèle du téléphone et le type de pièce&#x27;)}&lt;/p&gt;
+        &lt;/div&gt;
+        {canEdit &amp;&amp; (
+          &lt;button onClick={showForm ? () =&gt; setShowForm(false) : openAdd}
+            className=&quot;w-full sm:w-auto bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg&quot;&gt;
+            {showForm ? t(&#x27;Annuler&#x27;) : t(&#x27;+ Ajouter un prix&#x27;)}
+          &lt;/button&gt;
+        )}
+      &lt;/div&gt;
+
+      {/* search + part-type chips */}
+      &lt;div className=&quot;mb-5&quot;&gt;
+        &lt;input
+          value={search}
+          onChange={(e) =&gt; setSearch(e.target.value)}
+          placeholder={t(&#x27;Rechercher par modèle de téléphone ou type de pièce (ex. : iPhone 13 ou écran)&#x27;)}
+          className={inp + &#x27; mb-3&#x27;}
+        /&gt;
+        {partTypesInUse.length &gt; 0 &amp;&amp; (
+          &lt;div className=&quot;flex gap-2 overflow-x-auto -mx-1 px-1&quot;&gt;
+            &lt;button onClick={() =&gt; setPartFilter(&#x27;&#x27;)}
+              className={`shrink-0 text-xs px-3 py-1.5 rounded-lg border ${!partFilter ? &#x27;bg-[#e4211b] text-white border-[#e4211b]&#x27; : &#x27;border-[#e5e5e5] text-[#6b6b6b]&#x27;}`}&gt;
+              
+              {t(&#x27;Tout&#x27;)}
+            &lt;/button&gt;
+            {partTypesInUse.map((p) =&gt; (
+              &lt;button key={p} onClick={() =&gt; setPartFilter(p === partFilter ? &#x27;&#x27; : p)}
+                className={`shrink-0 text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1.5 ${partFilter === p ? &#x27;bg-[#e4211b] text-white border-[#e4211b]&#x27; : &#x27;border-[#e5e5e5] text-[#6b6b6b]&#x27;}`}&gt;
+                &lt;span&gt;{partIcon(p)}&lt;/span&gt;{p}
+              &lt;/button&gt;
+            ))}
+          &lt;/div&gt;
+        )}
+      &lt;/div&gt;
+
+      {error &amp;&amp; &lt;p className=&quot;bg-[#fdeaea] text-[#b3170f] text-sm rounded-lg px-4 py-3 mb-4&quot;&gt;{error}&lt;/p&gt;}
+
+      {canEdit &amp;&amp; showForm &amp;&amp; (
+        &lt;form onSubmit={submitForm} className=&quot;bg-white border border-[#e5e5e5] rounded-xl p-4 sm:p-6 mb-6 max-w-lg&quot;&gt;
+          &lt;h3 className=&quot;font-bold text-sm mb-4&quot;&gt;{editingId ? t(&#x27;Modifier le prix&#x27;) : t(&#x27;Nouveau prix&#x27;)}&lt;/h3&gt;
+          &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Modèle du téléphone&#x27;)}&lt;/label&gt;
+          &lt;input className={inp + &#x27; mb-4&#x27;} placeholder={t(&#x27;Ex. : iPhone 13 Pro&#x27;)} list=&quot;phone-model-options&quot;
+            value={form.device_model} onChange={(e) =&gt; setForm({ ...form, device_model: e.target.value })} /&gt;
+          &lt;datalist id=&quot;phone-model-options&quot;&gt;
+            {phoneModels.map((n) =&gt; &lt;option key={n} value={n} /&gt;)}
+          &lt;/datalist&gt;
+
+          &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Type de pièce&#x27;)}&lt;/label&gt;
+          &lt;input className={inp + &#x27; mb-2&#x27;} placeholder={t(&#x27;Ex. : écran&#x27;)}
+            value={form.part_type} onChange={(e) =&gt; setForm({ ...form, part_type: e.target.value })} list=&quot;part-type-options&quot; /&gt;
+          &lt;datalist id=&quot;part-type-options&quot;&gt;
+            {COMMON_PARTS.map((p) =&gt; &lt;option key={p} value={p} /&gt;)}
+          &lt;/datalist&gt;
+          &lt;div className=&quot;flex gap-1.5 flex-wrap mb-4&quot;&gt;
+            {COMMON_PARTS.map((p) =&gt; (
+              &lt;button type=&quot;button&quot; key={p} onClick={() =&gt; setForm({ ...form, part_type: p })}
+                className=&quot;text-[11px] px-2.5 py-1 rounded-full border border-[#e5e5e5] text-[#6b6b6b] hover:border-[#e4211b] hover:text-[#e4211b]&quot;&gt;
+                {p}
+              &lt;/button&gt;
+            ))}
+          &lt;/div&gt;
+
+          &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Qualité / type (original, copie 1er choix...)&#x27;)}&lt;/label&gt;
+          &lt;input className={inp + &#x27; mb-2&#x27;} placeholder={t(&#x27;Ex. : original&#x27;)}
+            value={form.quality_label} onChange={(e) =&gt; setForm({ ...form, quality_label: e.target.value })} /&gt;
+          &lt;div className=&quot;flex gap-1.5 flex-wrap mb-4&quot;&gt;
+            {QUALITY_SUGGESTIONS.map((q) =&gt; (
+              &lt;button type=&quot;button&quot; key={q} onClick={() =&gt; setForm({ ...form, quality_label: q })}
+                className=&quot;text-[11px] px-2.5 py-1 rounded-full border border-[#e5e5e5] text-[#6b6b6b] hover:border-[#e4211b] hover:text-[#e4211b]&quot;&gt;
+                {q}
+              &lt;/button&gt;
+            ))}
+          &lt;/div&gt;
+
+          &lt;div className=&quot;grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4&quot;&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;De (DT)&#x27;)}&lt;/label&gt;
+              &lt;input type=&quot;number&quot; step=&quot;0.001&quot; className={inp}
+                value={form.price_min} onChange={(e) =&gt; setForm({ ...form, price_min: e.target.value })} /&gt;
+            &lt;/div&gt;
+            &lt;div&gt;
+              &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;À (DT) — facultatif&#x27;)}&lt;/label&gt;
+              &lt;input type=&quot;number&quot; step=&quot;0.001&quot; className={inp} placeholder={t(&#x27;Laissez vide si le prix est fixe&#x27;)}
+                value={form.price_max} onChange={(e) =&gt; setForm({ ...form, price_max: e.target.value })} /&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+
+          &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Prix d\&#x27;achat (DT) — facultatif&#x27;)}&lt;/label&gt;
+          &lt;input type=&quot;number&quot; step=&quot;0.001&quot; className={inp + &#x27; mb-4&#x27;} placeholder={t(&#x27;Ce que la pièce vous coûte&#x27;)}
+            value={form.buy_price} onChange={(e) =&gt; setForm({ ...form, buy_price: e.target.value })} /&gt;
+
+          &lt;label className=&quot;block text-sm font-semibold mb-1.5&quot;&gt;{t(&#x27;Remarques (facultatif)&#x27;)}&lt;/label&gt;
+          &lt;input className={inp + &#x27; mb-4&#x27;}
+            value={form.notes} onChange={(e) =&gt; setForm({ ...form, notes: e.target.value })} /&gt;
+
+          {editingId &amp;&amp; (
+            &lt;div className=&quot;mb-4&quot;&gt;
+              &lt;p className=&quot;text-xs font-bold text-[#e4211b] mb-1.5&quot;&gt;{t(&#x27;Historique des prix&#x27;)}&lt;/p&gt;
+              {history.length === 0 ? (
+                &lt;p className=&quot;text-xs text-[#6b6b6b]&quot;&gt;{t(&#x27;Aucun changement enregistré.&#x27;)}&lt;/p&gt;
+              ) : (
+                &lt;ul className=&quot;text-xs text-[#6b6b6b] flex flex-col gap-1&quot;&gt;
+                  {history.map((h) =&gt; (
+                    &lt;li key={h.id}&gt;
+                      {t(&#x27;{date} · {name} : {old} → {new}&#x27;, {
+                        date: new Date(h.changed_at).toLocaleDateString(getLocale()),
+                        name: h.profiles?.full_name || &#x27;—&#x27;,
+                        old: fmtP(h.old_price_min, h.old_price_max),
+                        new: fmtP(h.new_price_min, h.new_price_max),
+                      })}
+                    &lt;/li&gt;
+                  ))}
+                &lt;/ul&gt;
+              )}
+            &lt;/div&gt;
+          )}
+
+          {formError &amp;&amp; &lt;p className=&quot;text-[#b3170f] text-sm mb-3&quot;&gt;{formError}&lt;/p&gt;}
+          &lt;div className=&quot;flex gap-2&quot;&gt;
+            &lt;button disabled={saving} className=&quot;bg-[#e4211b] text-white font-semibold text-sm px-5 py-2.5 rounded-lg disabled:opacity-60&quot;&gt;
+              {saving ? &#x27;...&#x27; : t(&#x27;Enregistrer&#x27;)}
+            &lt;/button&gt;
+            {editingId &amp;&amp; (
+              &lt;button type=&quot;button&quot; onClick={() =&gt; { remove(editingId); setShowForm(false) }}
+                className=&quot;text-[#b3170f] text-sm px-4 py-2.5&quot;&gt;
+                
+                {t(&#x27;Supprimer&#x27;)}
+              &lt;/button&gt;
+            )}
+          &lt;/div&gt;
+        &lt;/form&gt;
+      )}
+
+      {loading ? (
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;&lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;{t(&#x27;Chargement...&#x27;)}&lt;/p&gt;&lt;/div&gt;
+      ) : grouped.length === 0 ? (
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;
+          &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;
+            {rows.length === 0 ? t(&#x27;Aucun prix enregistré pour le moment.&#x27;) : t(&#x27;Aucun résultat pour cette recherche.&#x27;)}
+          &lt;/p&gt;
+        &lt;/div&gt;
+      ) : (
+        &lt;div className=&quot;flex flex-col gap-4&quot;&gt;
+          {grouped.map(([model, items]) =&gt; (
+            &lt;div key={model} className=&quot;bg-white border border-[#e5e5e5] rounded-xl overflow-hidden&quot;&gt;
+              &lt;div className=&quot;flex items-center justify-between px-4 sm:px-5 py-3 bg-[#faf9f5] border-b border-[#e5e5e5] border-e-[3px] border-e-[#e4211b]&quot;&gt;
+                &lt;span className=&quot;font-bold text-[#1a1a1a] text-sm&quot;&gt;{model}&lt;/span&gt;
+                &lt;span className=&quot;text-[11px] text-[#9a9a9a]&quot;&gt;{t(&#x27;{n} prix&#x27;, { n: items.length })}&lt;/span&gt;
+              &lt;/div&gt;
+
+              {/* phone: stacked rows */}
+              &lt;div className=&quot;lg:hidden divide-y divide-[#f0f0ea]&quot;&gt;
+                {items.map((r) =&gt; (
+                  &lt;div key={r.id} className=&quot;p-4 flex items-center justify-between gap-3&quot;&gt;
+                    &lt;div className=&quot;min-w-0 flex gap-2.5&quot;&gt;
+                      &lt;span className=&quot;text-base shrink-0&quot;&gt;{partIcon(r.part_type)}&lt;/span&gt;
+                      &lt;div className=&quot;min-w-0&quot;&gt;
+                        &lt;p className=&quot;text-sm font-semibold text-[#1a1a1a]&quot;&gt;{r.part_type} — {r.quality_label}&lt;/p&gt;
+                        {r.notes &amp;&amp; &lt;p className=&quot;text-xs text-[#6b6b6b] mt-0.5&quot;&gt;{r.notes}&lt;/p&gt;}
+                        &lt;EditedBy r={r} /&gt;
+                      &lt;/div&gt;
+                    &lt;/div&gt;
+                    &lt;div className=&quot;text-start shrink-0 flex flex-col items-end gap-1.5&quot;&gt;
+                      &lt;span className=&quot;bg-[#eefaf1] text-[#1f8a4c] font-bold text-xs whitespace-nowrap px-2.5 py-1 rounded-full&quot;&gt;
+                        {priceLabel(r)}
+                      &lt;/span&gt;
+                      {canEdit &amp;&amp; (
+                        &lt;button onClick={() =&gt; openEdit(r)}
+                          className=&quot;flex items-center gap-1 text-[11px] text-[#6b6b6b] border border-[#e5e5e5] rounded-lg px-2 py-1 hover:border-[#e4211b] hover:text-[#e4211b] transition-colors&quot;&gt;
+                          
+                          {t(&#x27;✏️ Modifier&#x27;)}
+                        &lt;/button&gt;
+                      )}
+                    &lt;/div&gt;
+                  &lt;/div&gt;
+                ))}
+              &lt;/div&gt;
+
+              {/* desktop: table */}
+              &lt;table className=&quot;w-full text-sm hidden lg:table&quot;&gt;
+                &lt;tbody&gt;
+                  {items.map((r) =&gt; (
+                    &lt;tr key={r.id} className=&quot;hover:bg-[#fbfaf6] border-b border-[#f0f0ea] last:border-b-0&quot;&gt;
+                      &lt;td className=&quot;px-5 py-3 w-48 font-semibold&quot;&gt;
+                        &lt;span className=&quot;ms-1.5&quot;&gt;{partIcon(r.part_type)}&lt;/span&gt;{r.part_type}
+                      &lt;/td&gt;
+                      &lt;td className=&quot;px-5 py-3 text-[#6b6b6b]&quot;&gt;{r.quality_label}&lt;/td&gt;
+                      &lt;td className=&quot;px-5 py-3 text-xs text-[#6b6b6b]&quot;&gt;
+                        {r.notes}
+                        &lt;EditedBy r={r} /&gt;
+                      &lt;/td&gt;
+                      &lt;td className=&quot;px-5 py-3&quot;&gt;
+                        &lt;span className=&quot;bg-[#eefaf1] text-[#1f8a4c] font-bold text-xs whitespace-nowrap px-2.5 py-1 rounded-full&quot;&gt;
+                          {priceLabel(r)}
+                        &lt;/span&gt;
+                      &lt;/td&gt;
+                      {canEdit &amp;&amp; (
+                        &lt;td className=&quot;px-5 py-3 text-start&quot;&gt;
+                          &lt;button onClick={() =&gt; openEdit(r)}
+                            className=&quot;flex items-center gap-1 text-xs text-[#6b6b6b] border border-[#e5e5e5] rounded-lg px-2.5 py-1.5 hover:border-[#e4211b] hover:text-[#e4211b] transition-colors&quot;&gt;
+                            
+                            {t(&#x27;✏️ Modifier&#x27;)}
+                          &lt;/button&gt;
+                        &lt;/td&gt;
+                      )}
+                    &lt;/tr&gt;
+                  ))}
+                &lt;/tbody&gt;
+              &lt;/table&gt;
+            &lt;/div&gt;
+          ))}
+        &lt;/div&gt;
+      )}
+    &lt;/div&gt;
+  )
+}
+</pre></div>
+<h4><code>src/i18n/LanguageContext.jsx</code></h4><p class="n">Change: merges the catalogue texts (en_catalog.js and ar_catalog.js) into the dictionaries. Updated file: select everything in your current file, delete it, paste this one.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { createContext, useContext, useEffect, useMemo } from &#x27;react&#x27;
+import enBase from &#x27;./en&#x27;
+import arBase from &#x27;./ar&#x27;
+import enCatalog from &#x27;./en_catalog&#x27;
+import arCatalog from &#x27;./ar_catalog&#x27;
+import { supabase } from &#x27;../lib/supabaseClient&#x27;
+
+// Three languages: French (default), English and Arabic (right to left).
+// The KEY of every text is its French wording, so:
+//   t(&#x27;Commandes&#x27;)                       -&gt; &quot;Commandes&quot; (fr)  /  &quot;Orders&quot; (en)
+//   t(&#x27;il y a {m} min&#x27;, { m: 5 })        -&gt; &quot;il y a 5 min&quot;    /  &quot;5 min ago&quot;
+// A text with no English entry simply stays in French — it is never blank.
+// If two French texts are identical but mean different things in English, add &quot;|context&quot;
+// to the key (e.g. &#x27;Reçu|reçu de caisse&#x27;): the part after | is never displayed.
+//
+// t() can be imported and used ANYWHERE (inside a component, in a helper, or in a list at the top
+// of a file). Changing the language reloads the page once, so everything — including those lists
+// at the top of files — is rebuilt in the new language. The choice is saved on the device.
+
+const STORAGE_KEY = &#x27;m4u-lang&#x27;
+export const LANGUAGES = [&#x27;fr&#x27;, &#x27;en&#x27;, &#x27;ar&#x27;]
+// the catalogue texts are in their own files and merged here
+const en = { ...enBase, ...enCatalog }
+const ar = { ...arBase, ...arCatalog }
+const DICTIONARIES = { fr: {}, en, ar }
+const LOCALES = { fr: &#x27;fr-FR&#x27;, en: &#x27;en-GB&#x27;, ar: &#x27;ar-TN&#x27; }
+
+function readSavedLang() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (LANGUAGES.includes(saved)) return saved
+  } catch { /* storage blocked: ignore */ }
+  return &#x27;fr&#x27; // French first, whatever the phone language is
+}
+
+// read once when the app loads (before any page code runs)
+const current = readSavedLang()
+// Arabic reads right to left: the whole page is mirrored (menu, tables, arrows). French and English: left to right.
+const DIR = current === &#x27;ar&#x27; ? &#x27;rtl&#x27; : &#x27;ltr&#x27;
+if (typeof document !== &#x27;undefined&#x27;) {
+  document.documentElement.lang = current
+  document.documentElement.dir = DIR
+}
+
+export function getLang() { return current }
+export function getLocale() { return LOCALES[current] }
+export function getDir() { return DIR }
+
+export function t(key, vars) {
+  if (key == null) return &#x27;&#x27;
+  const raw = String(key)
+  const dict = DICTIONARIES[current] || {}
+  let text = Object.prototype.hasOwnProperty.call(dict, raw) ? dict[raw] : raw
+  // &quot;Reçu|context&quot; -&gt; hide the context part when no translation exists
+  if (text === raw &amp;&amp; raw.includes(&#x27;|&#x27;)) text = raw.split(&#x27;|&#x27;)[0]
+  if (vars) {
+    text = text.replace(/\{(\w+)\}/g, (m, name) =&gt; (vars[name] !== undefined ? vars[name] : m))
+  }
+  return text
+}
+
+// Notifications are translated by the database (columns title_fr / title_en / message_fr / message_en).
+// This picks the one for the language in use; old rows without a translation show the original text.
+// Arabic is the text the database triggers write, so it is shown as it is.
+export function notifTitle(n) {
+  if (current === &#x27;ar&#x27;) return n.title || n.title_fr || &#x27;&#x27;
+  return (current === &#x27;en&#x27; ? n.title_en : n.title_fr) || n.title_fr || n.title || &#x27;&#x27;
+}
+export function notifMessage(n) {
+  if (current === &#x27;ar&#x27;) return n.message || n.message_fr || &#x27;&#x27;
+  return (current === &#x27;en&#x27; ? n.message_en : n.message_fr) || n.message_fr || n.message || &#x27;&#x27;
+}
+
+// Remember the language in the person&#x27;s profile too, so the PHONE notifications arrive in it.
+export async function saveLangToProfile(lang) {
+  try {
+    await Promise.race([
+      supabase.rpc(&#x27;set_my_lang&#x27;, { p_lang: lang }),
+      new Promise((resolve) =&gt; setTimeout(resolve, 1500)),
+    ])
+  } catch { /* not signed in, or offline: the phone keeps its last language */ }
+}
+
+export async function setLang(next) {
+  if (!LANGUAGES.includes(next) || next === current) return
+  try { localStorage.setItem(STORAGE_KEY, next) } catch { /* ignore */ }
+  await saveLangToProfile(next)
+  window.location.reload()
+}
+
+const LanguageContext = createContext({ lang: &#x27;fr&#x27;, dir: &#x27;ltr&#x27;, setLang, t, locale: &#x27;fr-FR&#x27; })
+
+export function LanguageProvider({ children }) {
+  useEffect(() =&gt; {
+    document.documentElement.lang = current
+    document.documentElement.dir = DIR
+  }, [])
+  const value = useMemo(() =&gt; ({ lang: current, dir: DIR, setLang, t, locale: LOCALES[current] }), [])
+  return &lt;LanguageContext.Provider value={value}&gt;{children}&lt;/LanguageContext.Provider&gt;
+}
+
+// const { t, lang, dir, locale, setLang } = useI18n()   (same t as the one you can import directly)
+export function useI18n() {
+  return useContext(LanguageContext)
+}
+</pre></div>
+<h4><code>src/components/layout/Sidebar.jsx</code></h4><p class="n">Change: new menu entry « Catalogue téléphones » for the 3 roles. Updated file: select everything in your current file, delete it, paste this one.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { NavLink, useNavigate } from &#x27;react-router-dom&#x27;
+import { useAuth } from &#x27;../../context/AuthContext&#x27;
+import { useI18n } from &#x27;../../i18n/LanguageContext&#x27;
+import logo from &#x27;../../assets/logo.png&#x27;
+
+// Items are grouped; a group with a `title` shows a small section label on desktop.
+const NAV_BY_ROLE = {
+  comptoir: [
+    { title: &#x27;Travail quotidien&#x27;, items: [
+      { to: &#x27;/comptoir&#x27;, label: &#x27;Commandes&#x27;, icon: &#x27;📋&#x27; },
+      { to: &#x27;/comptoir/new-order&#x27;, label: &#x27;Réception d\&#x27;un nouvel appareil&#x27;, icon: &#x27;📱&#x27; },
+      { to: &#x27;/comptoir/sell&#x27;, label: &#x27;Vendre un accessoire&#x27;, icon: &#x27;🛍️&#x27; },
+      { to: &#x27;/comptoir/clients&#x27;, label: &#x27;Clients&#x27;, icon: &#x27;⭐&#x27; },
+    ] },
+    { title: &#x27;Argent&#x27;, items: [
+      { to: &#x27;/caisse&#x27;, label: &#x27;Caisse&#x27;, icon: &#x27;💰&#x27; },
+      { to: &#x27;/comptoir/debts&#x27;, label: &#x27;Dettes des clients&#x27;, icon: &#x27;🧾&#x27; },
+      { to: &#x27;/comptoir/expenses&#x27;, label: &#x27;Frais de pièces détachées&#x27;, icon: &#x27;🔧&#x27; },
+      { to: &#x27;/comptoir/general-expenses&#x27;, label: &#x27;Dépenses générales&#x27;, icon: &#x27;💵&#x27; },
+    ] },
+    { title: &#x27;Outils&#x27;, items: [
+      { to: &#x27;/price-guide&#x27;, label: &#x27;Guide des prix&#x27;, icon: &#x27;💲&#x27; },
+      { to: &#x27;/phones&#x27;, label: &#x27;Catalogue téléphones&#x27;, icon: &#x27;📚&#x27; },
+    ] },
+  ],
+  technicien: [
+    { title: &#x27;Travail&#x27;, items: [
+      { to: &#x27;/technicien&#x27;, label: &#x27;Mes appareils&#x27;, icon: &#x27;🔧&#x27; },
+    ] },
+    { title: &#x27;Dépenses&#x27;, items: [
+      { to: &#x27;/technicien/expenses&#x27;, label: &#x27;Frais de pièces détachées&#x27;, icon: &#x27;🛠️&#x27; },
+      { to: &#x27;/technicien/general-expenses&#x27;, label: &#x27;Dépenses générales&#x27;, icon: &#x27;💵&#x27; },
+    ] },
+    { title: &#x27;Outils&#x27;, items: [
+      { to: &#x27;/price-guide&#x27;, label: &#x27;Guide des prix&#x27;, icon: &#x27;💲&#x27; },
+      { to: &#x27;/phones&#x27;, label: &#x27;Catalogue téléphones&#x27;, icon: &#x27;📚&#x27; },
+    ] },
+  ],
+  admin: [
+    { title: &#x27;Travail quotidien&#x27;, items: [
+      { to: &#x27;/comptoir&#x27;, label: &#x27;Commandes&#x27;, icon: &#x27;📋&#x27; },
+      { to: &#x27;/comptoir/new-order&#x27;, label: &#x27;Réception d\&#x27;un nouvel appareil&#x27;, icon: &#x27;📱&#x27; },
+      { to: &#x27;/technicien&#x27;, label: &#x27;Mes appareils&#x27;, icon: &#x27;🔧&#x27; },
+    ] },
+    { title: &#x27;Accueil&#x27;, items: [
+      { to: &#x27;/admin&#x27;, label: &#x27;Tableau de bord&#x27;, icon: &#x27;📊&#x27; },
+      { to: &#x27;/admin/clients&#x27;, label: &#x27;Clients&#x27;, icon: &#x27;⭐&#x27; },
+      { to: &#x27;/admin/accessories&#x27;, label: &#x27;Stock&#x27;, icon: &#x27;📦&#x27; },
+      { to: &#x27;/admin/users&#x27;, label: &#x27;Employés&#x27;, icon: &#x27;👥&#x27; },
+    ] },
+    { title: &#x27;Argent&#x27;, items: [
+      { to: &#x27;/caisse&#x27;, label: &#x27;Caisse&#x27;, icon: &#x27;💰&#x27; },
+      { to: &#x27;/admin/debts&#x27;, label: &#x27;Dettes et avances&#x27;, icon: &#x27;🧾&#x27; },
+      { to: &#x27;/admin/expenses&#x27;, label: &#x27;Frais de pièces détachées&#x27;, icon: &#x27;🔧&#x27; },
+      { to: &#x27;/admin/general-expenses&#x27;, label: &#x27;Dépenses générales&#x27;, icon: &#x27;💵&#x27; },
+      { to: &#x27;/admin/expenses-approval&#x27;, label: &#x27;Validation des dépenses&#x27;, icon: &#x27;✅&#x27; },
+      { to: &#x27;/admin/void-requests&#x27;, label: &#x27;Demandes d\&#x27;annulation&#x27;, icon: &#x27;🗑️&#x27; },
+    ] },
+    { title: &#x27;Rapports&#x27;, items: [
+      { to: &#x27;/admin/reports/daily&#x27;, label: &#x27;Rapport du jour&#x27;, icon: &#x27;📅&#x27; },
+      { to: &#x27;/admin/reports&#x27;, label: &#x27;Rapports&#x27;, icon: &#x27;📈&#x27; },
+      { to: &#x27;/price-guide&#x27;, label: &#x27;Guide des prix&#x27;, icon: &#x27;💲&#x27; },
+      { to: &#x27;/phones&#x27;, label: &#x27;Catalogue téléphones&#x27;, icon: &#x27;📚&#x27; },
+    ] },
+  ],
+}
+
+const ROLE_LABEL = { admin: &#x27;Admin&#x27;, comptoir: &#x27;Comptoir&#x27;, technicien: &#x27;Technicien&#x27; }
+
+// Desktop (lg and up): fixed column, always visible.
+// Mobile: slides in from the left as a drawer when `open` is true, with a dark
+// overlay. `onClose` is called on the X, on the overlay and after tapping a link.
+// Props are the same as before, so ProtectedLayout.jsx does not change.
+export default function Sidebar({ open = false, onClose = () =&gt; {} }) {
+  const { profile, logout } = useAuth()
+  const { t } = useI18n()
+  const navigate = useNavigate()
+  const groups = NAV_BY_ROLE[profile?.role] || []
+  const initial = (profile?.full_name || &#x27;?&#x27;).trim().charAt(0).toUpperCase()
+
+  async function handleLogout() {
+    await logout()
+    navigate(&#x27;/login&#x27;)
+  }
+
+  return (
+    &lt;&gt;
+      {open &amp;&amp; (
+        &lt;div className=&quot;lg:hidden fixed inset-0 bg-black/50 z-40&quot; onClick={onClose} aria-hidden=&quot;true&quot; /&gt;
+      )}
+
+      &lt;aside
+        className={`fixed lg:sticky lg:top-0 lg:h-screen inset-y-0 start-0 z-50 w-[270px] max-w-[85vw] shrink-0
+          bg-gradient-to-b from-[#1f1f1f] to-[#141414] text-[#e8e8e8] flex flex-col
+          border-e border-white/5 transition-transform duration-200 ease-out
+          lg:translate-x-0 lg:w-[260px]
+          ${open ? &#x27;translate-x-0&#x27; : &#x27;-translate-x-full rtl:translate-x-full&#x27;}`}
+      &gt;
+        {/* brand */}
+        &lt;div className=&quot;flex items-center justify-between px-5 pt-6 pb-5&quot;&gt;
+          &lt;div className=&quot;flex items-center gap-3&quot;&gt;
+            &lt;img src={logo} alt=&quot;Mobile 4 You&quot; className=&quot;w-11 h-11 rounded-xl object-cover shrink-0 ring-2 ring-white/10&quot; /&gt;
+            &lt;div className=&quot;leading-tight&quot;&gt;
+              &lt;p className=&quot;text-[14px] font-extrabold text-white tracking-wide&quot;&gt;MOBILE 4 YOU&lt;/p&gt;
+              &lt;p className=&quot;text-[11px] text-[#8d8d8d] mt-0.5&quot;&gt;{t(&#x27;Atelier de réparation de téléphones&#x27;)}&lt;/p&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+          &lt;button onClick={onClose} className=&quot;lg:hidden text-[#c3c3c3] hover:text-white text-2xl leading-none px-1&quot; aria-label=&quot;Fermer le menu&quot;&gt;×&lt;/button&gt;
+        &lt;/div&gt;
+
+        {/* nav */}
+        &lt;nav className=&quot;flex-1 overflow-y-auto px-3 pb-4 [scrollbar-width:thin]&quot;&gt;
+          {groups.map((g) =&gt; (
+            &lt;div key={g.title} className=&quot;mb-4&quot;&gt;
+              &lt;p className=&quot;px-3 mb-1.5 text-[10.5px] font-bold tracking-wider text-[#6f6f6f]&quot;&gt;{t(g.title)}&lt;/p&gt;
+              &lt;div className=&quot;flex flex-col gap-0.5&quot;&gt;
+                {g.items.map((item) =&gt; (
+                  &lt;NavLink
+                    key={item.to}
+                    to={item.to}
+                    end
+                    onClick={onClose}
+                    className={({ isActive }) =&gt;
+                      `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13.5px] transition-all ${
+                        isActive
+                          ? &#x27;bg-gradient-to-r rtl:bg-gradient-to-l from-[#e4211b]/25 to-[#e4211b]/5 text-white font-semibold shadow-[inset_3px_0_0_#e4211b] rtl:shadow-[inset_-3px_0_0_#e4211b]&#x27;
+                          : &#x27;text-[#bdbdbd] hover:bg-white/[0.06] hover:text-white&#x27;
+                      }`
+                    }
+                  &gt;
+                    {({ isActive }) =&gt; (
+                      &lt;&gt;
+                        &lt;span className={`w-8 h-8 rounded-lg flex items-center justify-center text-[15px] shrink-0 transition-colors ${
+                          isActive ? &#x27;bg-[#e4211b]/30&#x27; : &#x27;bg-white/[0.05] group-hover:bg-white/10&#x27;
+                        }`}&gt;{item.icon}&lt;/span&gt;
+                        &lt;span className=&quot;truncate&quot;&gt;{t(item.label)}&lt;/span&gt;
+                      &lt;/&gt;
+                    )}
+                  &lt;/NavLink&gt;
+                ))}
+              &lt;/div&gt;
+            &lt;/div&gt;
+          ))}
+        &lt;/nav&gt;
+
+        {/* user card — tap the name to open &quot;Mon compte&quot; (change password / email) */}
+        &lt;div className=&quot;m-3 p-3 rounded-xl bg-white/[0.05] border border-white/5&quot;&gt;
+          &lt;NavLink
+            to=&quot;/account&quot;
+            onClick={onClose}
+            className={({ isActive }) =&gt;
+              `flex items-center gap-3 rounded-lg p-1.5 -m-1.5 transition-colors ${isActive ? &#x27;bg-white/10&#x27; : &#x27;hover:bg-white/[0.06]&#x27;}`
+            }
+          &gt;
+            &lt;div className=&quot;w-9 h-9 rounded-full bg-[#e4211b] text-white font-bold flex items-center justify-center shrink-0&quot;&gt;{initial}&lt;/div&gt;
+            &lt;div className=&quot;min-w-0 flex-1&quot;&gt;
+              &lt;p className=&quot;text-[13px] font-semibold text-white truncate&quot;&gt;{profile?.full_name || &#x27;—&#x27;}&lt;/p&gt;
+              &lt;p className=&quot;text-[11px] text-[#9a9a9a]&quot;&gt;{ROLE_LABEL[profile?.role] || profile?.role} · {t(&#x27;Mon compte&#x27;)}&lt;/p&gt;
+            &lt;/div&gt;
+            &lt;span className=&quot;text-[#777] text-lg leading-none rtl:rotate-180&quot;&gt;›&lt;/span&gt;
+          &lt;/NavLink&gt;
+          &lt;button onClick={handleLogout} className=&quot;mt-3 w-full text-center text-[12px] font-semibold text-[#ff8f89] hover:text-white hover:bg-white/5 rounded-lg py-2 transition-colors&quot;&gt;
+            {t(&#x27;Se déconnecter&#x27;)}
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/aside&gt;
+    &lt;/&gt;
+  )
+}
+</pre></div>
+<h4><code>src/routes/AppRoutes.jsx</code></h4><p class="n">Change: new page /phones. Updated file: select everything in your current file, delete it, paste this one.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { BrowserRouter, Routes, Route, Navigate } from &#x27;react-router-dom&#x27;
+import { AuthProvider } from &#x27;../context/AuthContext&#x27;
+import ProtectedRoute from &#x27;../components/layout/ProtectedLayout&#x27;
+
+import Login from &#x27;../pages/Login&#x27;
+import ForgotPassword from &#x27;../pages/ForgotPassword&#x27;
+import ResetPassword from &#x27;../pages/ResetPassword&#x27;
+import TrackOrder from &#x27;../pages/public/TrackOrder&#x27;
+
+import ComptoirDashboard from &#x27;../pages/comptoir/ComptoirDashboard&#x27;
+import NewRepairOrder from &#x27;../pages/comptoir/NewRepairOrder&#x27;
+import SellAccessory from &#x27;../pages/comptoir/SellAccessory&#x27;
+
+import TechnicienDashboard from &#x27;../pages/technicien/TechnicienDashboard&#x27;
+import RepairDetails from &#x27;../pages/technicien/RepairDetails&#x27;
+
+import LogRepairExpense from &#x27;../pages/shared/LogRepairExpense&#x27;
+import GeneralExpenses from &#x27;../pages/shared/GeneralExpenses&#x27;
+
+import AdminDashboard from &#x27;../pages/admin/AdminDashboard&#x27;
+import UsersManagement from &#x27;../pages/admin/UsersManagement&#x27;
+import AccessoriesManagement from &#x27;../pages/admin/AccessoriesManagement&#x27;
+import ExpensesApproval from &#x27;../pages/admin/ExpensesApproval&#x27;
+import Reports from &#x27;../pages/admin/Reports&#x27;
+import DailyReport from &#x27;../pages/admin/DailyReport&#x27;
+
+import Caisse from &#x27;../pages/caisse/Caisse&#x27;
+import Debts from &#x27;../pages/shared/Debts&#x27;
+import VoidRequests from &#x27;../pages/admin/VoidRequests&#x27;
+import PriceGuide from &#x27;../pages/shared/PriceGuide&#x27;
+import PhoneCatalog from &#x27;../pages/shared/PhoneCatalog&#x27;
+import ScanRedirect from &#x27;../pages/shared/ScanRedirect&#x27;
+import ProductScanRedirect from &#x27;../pages/shared/ProductScanRedirect&#x27;
+import Clients from &#x27;../pages/shared/Clients&#x27;
+import MyAccount from &#x27;../pages/shared/MyAccount&#x27;
+import { NotificationProvider } from &#x27;../context/NotificationContext&#x27;
+import { LanguageProvider, useI18n } from &#x27;../i18n/LanguageContext&#x27;
+
+function Unauthorized() {
+  const { t } = useI18n()
+  return &lt;p style={{ padding: 40 }}&gt;{t(&#x27;Vous n\&#x27;avez pas accès à cette page&#x27;)}&lt;/p&gt;
+}
+
+export default function AppRoutes() {
+  return (
+    &lt;LanguageProvider&gt;
+    &lt;BrowserRouter&gt;
+      &lt;AuthProvider&gt;
+        &lt;NotificationProvider&gt;
+          &lt;Routes&gt;
+            &lt;Route path=&quot;/&quot; element={&lt;Navigate to=&quot;/login&quot; replace /&gt;} /&gt;
+            &lt;Route path=&quot;/login&quot; element={&lt;Login /&gt;} /&gt;
+            &lt;Route path=&quot;/forgot-password&quot; element={&lt;ForgotPassword /&gt;} /&gt;
+            &lt;Route path=&quot;/reset-password&quot; element={&lt;ResetPassword /&gt;} /&gt;
+            &lt;Route path=&quot;/track/:access_token&quot; element={&lt;TrackOrder /&gt;} /&gt;
+
+            {/* Shared by all three roles — registered ONCE.
+                (Registering the same path inside each role wrapper makes React Router
+                match the first wrapper only, and a role not in it is sent to /unauthorized.) */}
+            &lt;Route element={&lt;ProtectedRoute allowedRoles={[&#x27;admin&#x27;, &#x27;comptoir&#x27;, &#x27;technicien&#x27;]} /&gt;}&gt;
+              &lt;Route path=&quot;/price-guide&quot; element={&lt;PriceGuide /&gt;} /&gt;
+              &lt;Route path=&quot;/phones&quot; element={&lt;PhoneCatalog /&gt;} /&gt;
+              &lt;Route path=&quot;/account&quot; element={&lt;MyAccount /&gt;} /&gt;
+              &lt;Route path=&quot;/o/:orderNumber&quot; element={&lt;ScanRedirect /&gt;} /&gt;
+              &lt;Route path=&quot;/p/:productId&quot; element={&lt;ProductScanRedirect /&gt;} /&gt;
+            &lt;/Route&gt;
+
+            {/* Comptoir + Admin */}
+            &lt;Route element={&lt;ProtectedRoute allowedRoles={[&#x27;admin&#x27;, &#x27;comptoir&#x27;]} /&gt;}&gt;
+              &lt;Route path=&quot;/comptoir&quot; element={&lt;ComptoirDashboard /&gt;} /&gt;
+              &lt;Route path=&quot;/comptoir/new-order&quot; element={&lt;NewRepairOrder /&gt;} /&gt;
+              &lt;Route path=&quot;/comptoir/sell&quot; element={&lt;SellAccessory /&gt;} /&gt;
+              &lt;Route path=&quot;/comptoir/expenses&quot; element={&lt;LogRepairExpense /&gt;} /&gt;
+              &lt;Route path=&quot;/comptoir/general-expenses&quot; element={&lt;GeneralExpenses /&gt;} /&gt;
+              &lt;Route path=&quot;/caisse&quot; element={&lt;Caisse /&gt;} /&gt;
+              &lt;Route path=&quot;/comptoir/debts&quot; element={&lt;Debts /&gt;} /&gt;
+              &lt;Route path=&quot;/comptoir/clients&quot; element={&lt;Clients /&gt;} /&gt;
+            &lt;/Route&gt;
+
+            {/* Technicien + Admin */}
+            &lt;Route element={&lt;ProtectedRoute allowedRoles={[&#x27;admin&#x27;, &#x27;technicien&#x27;]} /&gt;}&gt;
+              &lt;Route path=&quot;/technicien&quot; element={&lt;TechnicienDashboard /&gt;} /&gt;
+              &lt;Route path=&quot;/technicien/order/:id&quot; element={&lt;RepairDetails /&gt;} /&gt;
+              &lt;Route path=&quot;/technicien/expenses&quot; element={&lt;LogRepairExpense /&gt;} /&gt;
+              &lt;Route path=&quot;/technicien/general-expenses&quot; element={&lt;GeneralExpenses /&gt;} /&gt;
+            &lt;/Route&gt;
+
+            {/* Admin only */}
+            &lt;Route element={&lt;ProtectedRoute allowedRoles={[&#x27;admin&#x27;]} /&gt;}&gt;
+              &lt;Route path=&quot;/admin&quot; element={&lt;AdminDashboard /&gt;} /&gt;
+              &lt;Route path=&quot;/admin/users&quot; element={&lt;UsersManagement /&gt;} /&gt;
+              &lt;Route path=&quot;/admin/accessories&quot; element={&lt;AccessoriesManagement /&gt;} /&gt;
+              &lt;Route path=&quot;/admin/expenses&quot; element={&lt;LogRepairExpense /&gt;} /&gt;
+              &lt;Route path=&quot;/admin/general-expenses&quot; element={&lt;GeneralExpenses /&gt;} /&gt;
+              &lt;Route path=&quot;/admin/expenses-approval&quot; element={&lt;ExpensesApproval /&gt;} /&gt;
+              &lt;Route path=&quot;/admin/void-requests&quot; element={&lt;VoidRequests /&gt;} /&gt;
+              &lt;Route path=&quot;/admin/debts&quot; element={&lt;Debts /&gt;} /&gt;
+              &lt;Route path=&quot;/admin/clients&quot; element={&lt;Clients /&gt;} /&gt;
+              &lt;Route path=&quot;/admin/reports&quot; element={&lt;Reports /&gt;} /&gt;
+              &lt;Route path=&quot;/admin/reports/daily&quot; element={&lt;DailyReport /&gt;} /&gt;
+            &lt;/Route&gt;
+
+            &lt;Route path=&quot;/unauthorized&quot; element={&lt;Unauthorized /&gt;} /&gt;
+          &lt;/Routes&gt;
+        &lt;/NotificationProvider&gt;
+      &lt;/AuthProvider&gt;
+    &lt;/BrowserRouter&gt;
+    &lt;/LanguageProvider&gt;
+  )
+}
+</pre></div>
+<h4><code>src/pages/comptoir/NewRepairOrder.jsx</code></h4><p class="n">Change: the device model field suggests names from the catalogue. Updated file: select everything in your current file, delete it, paste this one.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useState, useEffect } from &#x27;react&#x27;
+import { useNavigate } from &#x27;react-router-dom&#x27;
+import { supabase } from &#x27;../../lib/supabaseClient&#x27;
+import { useAuth } from &#x27;../../context/AuthContext&#x27;
+import PrintOrderDialog from &#x27;../../components/qr/PrintOrderDialog&#x27;
+import { t } from &#x27;../../i18n/LanguageContext&#x27;
+import { usePhoneModelNames } from &#x27;../../lib/usePhoneModels&#x27;
+
+export default function NewRepairOrder() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+
+  const [clientName, setClientName] = useState(&#x27;&#x27;)
+  const [clientPhone, setClientPhone] = useState(&#x27;&#x27;)
+  const [deviceModel, setDeviceModel] = useState(&#x27;&#x27;)
+  const phoneModels = usePhoneModelNames()
+  const [issue, setIssue] = useState(&#x27;&#x27;)
+  const [priceMin, setPriceMin] = useState(&#x27;&#x27;)
+  const [priceMax, setPriceMax] = useState(&#x27;&#x27;)
+  const [technicianId, setTechnicianId] = useState(&#x27;&#x27;)
+  const [technicians, setTechnicians] = useState([])
+  const [error, setError] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [printOrder, setPrintOrder] = useState(null) // set after save -&gt; shows the QR / print dialog
+
+  useEffect(() =&gt; {
+    async function loadTechnicians() {
+      const { data, error } = await supabase
+        .from(&#x27;profiles&#x27;)
+        .select(&#x27;id, full_name, role&#x27;)
+        .in(&#x27;role&#x27;, [&#x27;technicien&#x27;, &#x27;admin&#x27;])
+        .order(&#x27;full_name&#x27;)
+
+      if (error) {
+        setError(t(&#x27;Erreur de chargement de la liste des techniciens :&#x27;) + &#x27; &#x27; + error.message)
+        return
+      }
+      setTechnicians(data || [])
+    }
+    loadTechnicians()
+  }, [])
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError(null)
+
+    if (!clientName.trim() || !clientPhone.trim() || !deviceModel.trim() || !issue.trim()) {
+      setError(t(&#x27;Remplissez tous les champs obligatoires&#x27;))
+      return
+    }
+    if (!technicianId) {
+      setError(t(&#x27;Vous devez choisir le technicien qui prendra l\&#x27;appareil&#x27;))
+      return
+    }
+
+    setSaving(true)
+
+    let clientId
+    const { data: existingClient } = await supabase
+      .from(&#x27;clients&#x27;)
+      .select(&#x27;id&#x27;)
+      .eq(&#x27;phone&#x27;, clientPhone.trim())
+      .maybeSingle()
+
+    if (existingClient) {
+      clientId = existingClient.id
+    } else {
+      const { data: newClient, error: clientError } = await supabase
+        .from(&#x27;clients&#x27;)
+        .insert({ full_name: clientName.trim(), phone: clientPhone.trim() })
+        .select(&#x27;id&#x27;)
+        .single()
+
+      if (clientError) {
+        setSaving(false)
+        setError(t(&#x27;Erreur de création du client :&#x27;) + &#x27; &#x27; + clientError.message)
+        return
+      }
+      clientId = newClient.id
+    }
+
+    const orderNumber = &#x27;ORD&#x27; + Date.now().toString().slice(-8)
+
+    const { data: createdOrder, error: orderError } = await supabase.from(&#x27;repair_orders&#x27;).insert({
+      order_number: orderNumber,
+      client_id: clientId,
+      device_model: deviceModel.trim(),
+      issue_description: issue.trim(),
+      price_min: priceMin ? Number(priceMin) : null,
+      price_max: priceMax ? Number(priceMax) : null,
+      comptoir_id: user.id,
+      technician_id: technicianId,
+      status: &#x27;received&#x27;,
+    }).select(&#x27;id, order_number, access_token, created_at&#x27;).single()
+
+    setSaving(false)
+
+    if (orderError) setError(t(&#x27;Erreur :&#x27;) + &#x27; &#x27; + orderError.message)
+    else setPrintOrder({
+      ...createdOrder,
+      device_model: deviceModel.trim(),
+      issue_description: issue.trim(),
+      price_min: priceMin ? Number(priceMin) : null,
+      price_max: priceMax ? Number(priceMax) : null,
+      client_name: clientName.trim(),
+    })
+  }
+
+  return (
+    &lt;div&gt;
+      &lt;div className=&quot;mb-6 pb-4 border-b border-[#e5e5e5]&quot;&gt;
+        &lt;h1 className=&quot;text-xl font-extrabold text-[#1a1a1a] mb-1&quot;&gt;{t(&#x27;Réception d\&#x27;un nouvel appareil&#x27;)}&lt;/h1&gt;
+        &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;{t(&#x27;Remplissez les données du client et de l\&#x27;appareil pour démarrer la réparation&#x27;)}&lt;/p&gt;
+      &lt;/div&gt;
+
+      &lt;form onSubmit={handleSubmit} className=&quot;bg-white border border-[#e5e5e5] rounded-xl p-8 max-w-xl&quot;&gt;
+        &lt;h3 className=&quot;text-xs font-bold text-[#e4211b] pb-2 mb-4 border-b border-[#e5e5e5]&quot;&gt;{t(&#x27;Informations du client&#x27;)}&lt;/h3&gt;
+
+        &lt;div className=&quot;mb-4&quot;&gt;
+          &lt;label className=&quot;block text-sm font-semibold text-[#1a1a1a] mb-1.5&quot;&gt;{t(&#x27;Nom du client&#x27;)}&lt;/label&gt;
+          &lt;input value={clientName} onChange={(e) =&gt; setClientName(e.target.value)} placeholder={t(&#x27;Exemple : Sami Trabelsi&#x27;)} className=&quot;w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]&quot; required /&gt;
+        &lt;/div&gt;
+
+        &lt;div className=&quot;mb-4&quot;&gt;
+          &lt;label className=&quot;block text-sm font-semibold text-[#1a1a1a] mb-1.5&quot;&gt;{t(&#x27;N° de téléphone&#x27;)}&lt;/label&gt;
+          &lt;input value={clientPhone} onChange={(e) =&gt; setClientPhone(e.target.value)} placeholder=&quot;21654321&quot; className=&quot;w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]&quot; required /&gt;
+        &lt;/div&gt;
+
+        &lt;h3 className=&quot;text-xs font-bold text-[#e4211b] pb-2 mb-4 mt-7 border-b border-[#e5e5e5]&quot;&gt;{t(&#x27;Informations de l\&#x27;appareil&#x27;)}&lt;/h3&gt;
+
+        &lt;div className=&quot;mb-4&quot;&gt;
+          &lt;label className=&quot;block text-sm font-semibold text-[#1a1a1a] mb-1.5&quot;&gt;{t(&#x27;Modèle de l\&#x27;appareil&#x27;)}&lt;/label&gt;
+          &lt;datalist id=&quot;phone-model-options&quot;&gt;{phoneModels.map((n) =&gt; &lt;option key={n} value={n} /&gt;)}&lt;/datalist&gt;
+          &lt;input list=&quot;phone-model-options&quot; value={deviceModel} onChange={(e) =&gt; setDeviceModel(e.target.value)} placeholder={t(&#x27;Exemple : iPhone 12 Pro&#x27;)} className=&quot;w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]&quot; required /&gt;
+        &lt;/div&gt;
+
+        &lt;div className=&quot;mb-4&quot;&gt;
+          &lt;label className=&quot;block text-sm font-semibold text-[#1a1a1a] mb-1.5&quot;&gt;{t(&#x27;Description de la panne&#x27;)}&lt;/label&gt;
+          &lt;textarea value={issue} onChange={(e) =&gt; setIssue(e.target.value)} placeholder={t(&#x27;Exemple : écran cassé, ne charge pas...&#x27;)} className=&quot;w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm min-h-[80px] resize-y focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]&quot; required /&gt;
+        &lt;/div&gt;
+
+        &lt;div className=&quot;mb-4&quot;&gt;
+          &lt;label className=&quot;block text-sm font-semibold text-[#1a1a1a] mb-1.5&quot;&gt;{t(&#x27;Technicien assigné&#x27;)}&lt;/label&gt;
+          &lt;select value={technicianId} onChange={(e) =&gt; setTechnicianId(e.target.value)} className=&quot;w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]&quot; required&gt;
+            &lt;option value=&quot;&quot;&gt;{t(&#x27;-- Choisir un technicien --&#x27;)}&lt;/option&gt;
+            {technicians.map((tc) =&gt; (
+              &lt;option key={tc.id} value={tc.id}&gt;{tc.full_name}{tc.id === user.id ? &#x27; (&#x27; + t(&#x27;Moi&#x27;) + &#x27;)&#x27; : tc.role === &#x27;admin&#x27; ? &#x27; · Admin&#x27; : &#x27;&#x27;}&lt;/option&gt;
+            ))}
+          &lt;/select&gt;
+          {technicians.length === 0 &amp;&amp; (
+            &lt;p className=&quot;text-xs text-[#b3170f] mt-1.5&quot;&gt;{t(&#x27;Aucun technicien n\&#x27;est enregistré dans le système pour le moment.&#x27;)}&lt;/p&gt;
+          )}
+        &lt;/div&gt;
+
+        &lt;div className=&quot;mb-2&quot;&gt;
+          &lt;label className=&quot;block text-sm font-semibold text-[#1a1a1a] mb-1.5&quot;&gt;
+            
+            {t(&#x27;Prix estimé&#x27;)} &lt;span className=&quot;text-[#6b6b6b] font-normal text-xs&quot;&gt;{t(&#x27;(facultatif)&#x27;)}&lt;/span&gt;
+          &lt;/label&gt;
+          &lt;div className=&quot;flex gap-2.5&quot;&gt;
+            &lt;input type=&quot;number&quot; value={priceMin} onChange={(e) =&gt; setPriceMin(e.target.value)} placeholder={t(&#x27;De (DT)&#x27;)} className=&quot;w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]&quot; /&gt;
+            &lt;input type=&quot;number&quot; value={priceMax} onChange={(e) =&gt; setPriceMax(e.target.value)} placeholder={t(&#x27;À (DT)&#x27;)} className=&quot;w-full px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b] bg-[#fdfdfb]&quot; /&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        {error &amp;&amp; &lt;p className=&quot;text-[#b3170f] text-sm mt-3&quot;&gt;{error}&lt;/p&gt;}
+
+        &lt;div className=&quot;flex gap-2.5 mt-6 pt-5 border-t border-[#e5e5e5]&quot;&gt;
+          &lt;button type=&quot;submit&quot; disabled={saving} className=&quot;bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90 disabled:opacity-60&quot;&gt;
+            {saving ? t(&#x27;Enregistrement...&#x27;) : t(&#x27;Enregistrer et réceptionner&#x27;)}
+          &lt;/button&gt;
+          &lt;button type=&quot;button&quot; onClick={() =&gt; navigate(&#x27;/comptoir&#x27;)} className=&quot;border border-[#e5e5e5] text-[#1a1a1a] text-sm px-4 py-2.5 rounded-lg hover:bg-[#f7f7f7]&quot;&gt;
+            
+            {t(&#x27;Annuler&#x27;)}
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/form&gt;
+
+      {printOrder &amp;&amp; (
+        &lt;PrintOrderDialog order={printOrder} onClose={() =&gt; navigate(&#x27;/comptoir&#x27;)} /&gt;
+      )}
+    &lt;/div&gt;
+  )
+}
+</pre></div>
+<h4><code>src/pages/comptoir/ComptoirDashboard.jsx</code></h4><p class="n">Change: same suggestions in the edit-order window. Updated file: select everything in your current file, delete it, paste this one.</p><div class="cb"><button onclick="cp(this)">Copy</button><pre>import { useEffect, useMemo, useState } from &#x27;react&#x27;
+import { Link } from &#x27;react-router-dom&#x27;
+import { supabase } from &#x27;../../lib/supabaseClient&#x27;
+import StatusBadge from &#x27;../../components/ui/StatusBadge&#x27;
+import { useAuth } from &#x27;../../context/AuthContext&#x27;
+import UnpaidDeliveryButton from &#x27;../shared/UnpaidDeliveryButton&#x27;
+import PrintOrderDialog from &#x27;../../components/qr/PrintOrderDialog&#x27;
+import { PaymentBadge, PickupBadge, PaymentSummary } from &#x27;../../components/shared/OrderBadges&#x27;
+import FideleDiscount from &#x27;../../components/shared/FideleDiscount&#x27;
+import { t, getLocale } from &#x27;../../i18n/LanguageContext&#x27;
+import { usePhoneModelNames } from &#x27;../../lib/usePhoneModels&#x27;
+
+const STATUS_OPTIONS = [
+  { value: &#x27;received&#x27;, label: t(&#x27;Reçu&#x27;) },
+  { value: &#x27;diagnosing&#x27;, label: t(&#x27;Diagnostic&#x27;) },
+  { value: &#x27;in_repair&#x27;, label: t(&#x27;En réparation&#x27;) },
+  { value: &#x27;ready&#x27;, label: t(&#x27;Prêt à récupérer&#x27;) },
+  { value: &#x27;delivered&#x27;, label: t(&#x27;Livré&#x27;) },
+  { value: &#x27;cancelled&#x27;, label: t(&#x27;Annulé&#x27;) },
+]
+
+const SORT_OPTIONS = [
+  { value: &#x27;date_desc&#x27;, label: t(&#x27;Plus récents d\&#x27;abord&#x27;) },
+  { value: &#x27;date_asc&#x27;, label: t(&#x27;Plus anciens d\&#x27;abord&#x27;) },
+  { value: &#x27;price_desc&#x27;, label: t(&#x27;Prix : du plus élevé&#x27;) },
+  { value: &#x27;price_asc&#x27;, label: t(&#x27;Prix : du plus bas&#x27;) },
+]
+
+export default function ComptoirDashboard() {
+  const { user } = useAuth()
+  const [orders, setOrders] = useState([])
+  const [technicians, setTechnicians] = useState([])
+  const [loading, setLoading] = useState(true)
+  // ?q=ORD123 (from scanning a device sticker) pre-fills the search box
+  const [search, setSearch] = useState(() =&gt; new URLSearchParams(window.location.search).get(&#x27;q&#x27;) || &#x27;&#x27;)
+  const [printOrder, setPrintOrder] = useState(null)
+  const [sortBy, setSortBy] = useState(&#x27;date_desc&#x27;)
+
+  const [selectedOrder, setSelectedOrder] = useState(null)
+  const [form, setForm] = useState(null)
+  const phoneModels = usePhoneModelNames()
+  const [saving, setSaving] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [changingStatus, setChangingStatus] = useState(false)
+  const [modalError, setModalError] = useState(null)
+
+  // NOTE: the functions are declared BEFORE the useEffect that calls them
+  // (fixes &quot;Cannot access variable before it is declared&quot;).
+  // loadOrders does not call setLoading(true) itself: &quot;loading&quot; starts as true,
+  // and reloads after an action refresh the table silently (no flicker).
+  async function loadOrders() {
+    const { data } = await supabase
+      .from(&#x27;repair_orders&#x27;)
+      .select(&#x27;id, order_number, access_token, device_model, issue_description, status, technician_id, price_min, price_max, final_price, discount, discount_percent, discount_decision, price_confirmed, created_at, client_id, client_acknowledged, client_pickup_eta, clients(full_name, phone, is_fidele), debts(kind, amount, paid_amount, status)&#x27;)
+      .order(&#x27;created_at&#x27;, { ascending: false })
+      .limit(50)
+    setOrders(data || [])
+    setLoading(false)
+  }
+
+  async function loadTechnicians() {
+    const { data } = await supabase
+      .from(&#x27;profiles&#x27;)
+      .select(&#x27;id, full_name, role&#x27;)
+      .in(&#x27;role&#x27;, [&#x27;technicien&#x27;, &#x27;admin&#x27;])
+      .order(&#x27;full_name&#x27;)
+    setTechnicians(data || [])
+  }
+
+  useEffect(() =&gt; {
+    loadOrders()
+    loadTechnicians()
+    // refresh every 30s so &quot;the client will come&quot; (from the QR page) shows up without reloading
+    const t = setInterval(loadOrders, 30000)
+    return () =&gt; clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Search box matches order number, client name, phone, or device model —
+  // all client-side against the 50 most recent orders already loaded.
+  // Sort re-orders that same filtered list; nothing re-fetches from the server.
+  const visibleOrders = useMemo(() =&gt; {
+    const q = search.trim().toLowerCase()
+    let list = !q
+      ? orders
+      : orders.filter((o) =&gt; {
+          const hay = [
+            o.order_number, o.device_model,
+            o.clients?.full_name, o.clients?.phone,
+          ].join(&#x27; &#x27;).toLowerCase()
+          return hay.includes(q)
+        })
+
+    list = [...list].sort((a, b) =&gt; {
+      if (sortBy === &#x27;date_desc&#x27;) return new Date(b.created_at) - new Date(a.created_at)
+      if (sortBy === &#x27;date_asc&#x27;) return new Date(a.created_at) - new Date(b.created_at)
+      const pa = a.final_price ?? -1
+      const pb = b.final_price ?? -1
+      if (sortBy === &#x27;price_desc&#x27;) return pb - pa
+      if (sortBy === &#x27;price_asc&#x27;) return pa - pb
+      return 0
+    })
+    return list
+  }, [orders, search, sortBy])
+
+  function openModal(order) {
+    setSelectedOrder(order)
+    setForm({
+      clientName: order.clients?.full_name || &#x27;&#x27;,
+      clientPhone: order.clients?.phone || &#x27;&#x27;,
+      deviceModel: order.device_model || &#x27;&#x27;,
+      issueDescription: order.issue_description || &#x27;&#x27;,
+      priceMin: order.price_min ?? &#x27;&#x27;,
+      priceMax: order.price_max ?? &#x27;&#x27;,
+      technicianId: order.technician_id || &#x27;&#x27;,
+    })
+    setModalError(null)
+  }
+
+  function closeModal() {
+    setSelectedOrder(null)
+    setForm(null)
+    setModalError(null)
+  }
+
+  async function handleSaveEdits() {
+    if (!form.clientName.trim() || !form.clientPhone.trim() || !form.deviceModel.trim() || !form.issueDescription.trim() || !form.technicianId) {
+      setModalError(t(&#x27;Remplissez tous les champs obligatoires&#x27;))
+      return
+    }
+    setSaving(true)
+    setModalError(null)
+
+    // 1) تحديث بيانات الحريف
+    const { error: clientError } = await supabase
+      .from(&#x27;clients&#x27;)
+      .update({ full_name: form.clientName.trim(), phone: form.clientPhone.trim() })
+      .eq(&#x27;id&#x27;, selectedOrder.client_id)
+
+    if (clientError) {
+      setSaving(false)
+      setModalError(t(&#x27;Erreur de mise à jour du client :&#x27;) + &#x27; &#x27; + clientError.message)
+      return
+    }
+
+    // 2) تحديث بيانات الطلب
+    const { error: orderError } = await supabase
+      .from(&#x27;repair_orders&#x27;)
+      .update({
+        device_model: form.deviceModel.trim(),
+        issue_description: form.issueDescription.trim(),
+        price_min: form.priceMin ? Number(form.priceMin) : null,
+        price_max: form.priceMax ? Number(form.priceMax) : null,
+        technician_id: form.technicianId,
+      })
+      .eq(&#x27;id&#x27;, selectedOrder.id)
+
+    setSaving(false)
+
+    if (orderError) {
+      setModalError(t(&#x27;Erreur :&#x27;) + &#x27; &#x27; + orderError.message)
+      return
+    }
+
+    setOrders((prev) =&gt;
+      prev.map((o) =&gt;
+        o.id === selectedOrder.id
+          ? {
+              ...o,
+              device_model: form.deviceModel.trim(),
+              issue_description: form.issueDescription.trim(),
+              price_min: form.priceMin ? Number(form.priceMin) : null,
+              price_max: form.priceMax ? Number(form.priceMax) : null,
+              technician_id: form.technicianId,
+              clients: { ...o.clients, full_name: form.clientName.trim(), phone: form.clientPhone.trim() },
+            }
+          : o
+      )
+    )
+    closeModal()
+  }
+
+  async function handleConfirmPrice() {
+    setConfirming(true)
+    setModalError(null)
+
+    const { error } = await supabase
+      .from(&#x27;repair_orders&#x27;)
+      .update({ price_confirmed: true })
+      .eq(&#x27;id&#x27;, selectedOrder.id)
+
+    setConfirming(false)
+
+    if (error) {
+      setModalError(t(&#x27;Erreur de confirmation du prix :&#x27;) + &#x27; &#x27; + error.message)
+      return
+    }
+
+    setOrders((prev) =&gt;
+      prev.map((o) =&gt; (o.id === selectedOrder.id ? { ...o, price_confirmed: true } : o))
+    )
+    setSelectedOrder((prev) =&gt; ({ ...prev, price_confirmed: true }))
+  }
+
+  // Comptoir changes the status (ready / delivered / cancelled ...).
+  // The technician still does diagnosis + repair + final price.
+  async function handleChangeStatus(newStatus) {
+    if (newStatus === selectedOrder.status) return
+    setModalError(null)
+
+    if (newStatus === &#x27;delivered&#x27; &amp;&amp; (!selectedOrder.final_price || !selectedOrder.price_confirmed)) {
+      setModalError(t(&#x27;Livraison impossible : le technicien doit fixer le prix final et le confirmer (confirmation du prix) avant la livraison&#x27;))
+      return
+    }
+    if (newStatus === &#x27;delivered&#x27; &amp;&amp; !window.confirm(t(&#x27;Confirmer la remise de l\&#x27;appareil au client ? (irréversible)&#x27;))) return
+    if (newStatus === &#x27;cancelled&#x27; &amp;&amp; !window.confirm(t(&#x27;Confirmer l\&#x27;annulation de la commande ?&#x27;))) return
+
+    setChangingStatus(true)
+    const updates = { status: newStatus }
+    if (newStatus === &#x27;ready&#x27;) updates.ready_at = new Date().toISOString()
+    if (newStatus === &#x27;delivered&#x27;) {
+      updates.delivered_at = new Date().toISOString()
+      updates.delivered_by = user.id
+    }
+    const { error } = await supabase.from(&#x27;repair_orders&#x27;).update(updates).eq(&#x27;id&#x27;, selectedOrder.id)
+    setChangingStatus(false)
+
+    if (error) {
+      setModalError(t(&#x27;Erreur de changement de statut :&#x27;) + &#x27; &#x27; + error.message)
+      return
+    }
+    setOrders((prev) =&gt; prev.map((o) =&gt; (o.id === selectedOrder.id ? { ...o, status: newStatus } : o)))
+    setSelectedOrder((prev) =&gt; ({ ...prev, status: newStatus }))
+  }
+
+  // called by UnpaidDeliveryButton after the debt was recorded (order is now delivered)
+  async function handleUnpaidDone() {
+    await loadOrders()
+    closeModal()
+  }
+
+  // fidele discount decided (here by comptoir, or by the technicien on his page)
+  function handleDiscountChanged(updates) {
+    setOrders((prev) =&gt; prev.map((o) =&gt; (o.id === selectedOrder.id ? { ...o, ...updates } : o)))
+    setSelectedOrder((prev) =&gt; ({ ...prev, ...updates }))
+  }
+
+  const inp = &#x27;px-3.5 py-2.5 border border-[#e5e5e5] rounded-lg text-sm focus:outline-none focus:border-[#e4211b]&#x27;
+
+  return (
+    &lt;div&gt;
+      &lt;div className=&quot;flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end mb-6 pb-4 border-b border-[#e5e5e5]&quot;&gt;
+        &lt;div&gt;
+          &lt;h1 className=&quot;text-xl font-extrabold text-[#1a1a1a] mb-1&quot;&gt;{t(&#x27;Tableau de réception&#x27;)}&lt;/h1&gt;
+          &lt;p className=&quot;text-sm text-[#6b6b6b]&quot;&gt;{t(&#x27;Toutes les réparations en cours et passées&#x27;)}&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;Link to=&quot;/comptoir/new-order&quot;&gt;
+          &lt;button className=&quot;w-full sm:w-auto bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90&quot;&gt;
+            
+            {t(&#x27;+ Réceptionner un nouvel appareil&#x27;)}
+          &lt;/button&gt;
+        &lt;/Link&gt;
+      &lt;/div&gt;
+
+      {/* search + sort */}
+      &lt;div className=&quot;flex flex-col sm:flex-row gap-2 mb-5&quot;&gt;
+        &lt;input
+          value={search}
+          onChange={(e) =&gt; setSearch(e.target.value)}
+          placeholder={t(&#x27;Rechercher par n° de commande, nom du client, téléphone ou appareil&#x27;)}
+          className={inp + &#x27; flex-1&#x27;}
+        /&gt;
+        &lt;select
+          value={sortBy}
+          onChange={(e) =&gt; setSortBy(e.target.value)}
+          className={inp + &#x27; bg-white sm:w-52&#x27;}
+        &gt;
+          {SORT_OPTIONS.map((s) =&gt; (
+            &lt;option key={s.value} value={s.value}&gt;{s.label}&lt;/option&gt;
+          ))}
+        &lt;/select&gt;
+      &lt;/div&gt;
+
+      {loading ? (
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;
+          &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;{t(&#x27;Chargement...&#x27;)}&lt;/p&gt;
+        &lt;/div&gt;
+      ) : visibleOrders.length === 0 ? (
+        &lt;div className=&quot;bg-white border border-[#e5e5e5] rounded-xl&quot;&gt;
+          &lt;p className=&quot;p-6 text-sm text-[#6b6b6b]&quot;&gt;
+            {orders.length === 0 ? t(&#x27;Aucune commande pour le moment&#x27;) : t(&#x27;Aucun résultat pour cette recherche&#x27;)}
+          &lt;/p&gt;
+        &lt;/div&gt;
+      ) : (
+        &lt;&gt;
+          {/* Phone / tablet: one card per order, no sideways scrolling */}
+          &lt;div className=&quot;lg:hidden flex flex-col gap-3&quot;&gt;
+            {visibleOrders.map((o) =&gt; (
+              &lt;button
+                key={o.id}
+                onClick={() =&gt; openModal(o)}
+                className=&quot;text-start bg-white border border-[#e5e5e5] rounded-xl p-4 hover:bg-[#fbfaf6]&quot;
+              &gt;
+                &lt;div className=&quot;flex justify-between items-start gap-3 mb-2&quot;&gt;
+                  &lt;span className=&quot;font-bold text-[#b3170f] text-sm&quot; dir=&quot;ltr&quot;&gt;
+                    {o.order_number}
+                  &lt;/span&gt;
+                  &lt;StatusBadge status={o.status} /&gt;
+                &lt;/div&gt;
+                &lt;p className=&quot;font-semibold text-[#1a1a1a] text-sm&quot;&gt;{o.clients?.is_fidele &amp;&amp; &#x27;⭐ &#x27;}{o.clients?.full_name}&lt;/p&gt;
+                &lt;p className=&quot;text-xs text-[#6b6b6b]&quot;&gt;{o.clients?.phone}&lt;/p&gt;
+                &lt;div className=&quot;flex flex-wrap gap-1.5 mt-2 empty:hidden&quot;&gt;
+                  &lt;PickupBadge order={o} /&gt;
+                  &lt;PaymentBadge order={o} /&gt;
+                &lt;/div&gt;
+                &lt;div className=&quot;flex justify-between items-center mt-3 pt-3 border-t border-[#f0f0ea]&quot;&gt;
+                  &lt;span className=&quot;text-xs text-[#6b6b6b]&quot;&gt;{o.device_model}&lt;/span&gt;
+                  {o.final_price ? (
+                    &lt;span className={`text-xs font-semibold ${o.price_confirmed ? &#x27;text-green-700&#x27; : &#x27;text-[#b3170f]&#x27;}`}&gt;
+                      {o.final_price}  {t(&#x27;DT&#x27;)} {!o.price_confirmed &amp;&amp; t(&#x27;(non confirmé)&#x27;)}
+                    &lt;/span&gt;
+                  ) : (
+                    &lt;span className=&quot;text-xs text-[#6b6b6b]&quot;&gt;{t(&#x27;Pas encore de prix&#x27;)}&lt;/span&gt;
+                  )}
+                &lt;/div&gt;
+              &lt;/button&gt;
+            ))}
+          &lt;/div&gt;
+
+          {/* Desktop: the original table */}
+          &lt;div className=&quot;hidden lg:block bg-white border border-[#e5e5e5] rounded-xl overflow-hidden&quot;&gt;
+            &lt;table className=&quot;w-full text-sm&quot;&gt;
+              &lt;thead&gt;
+                &lt;tr className=&quot;bg-[#faf9f5] text-xs text-[#6b6b6b] font-semibold&quot;&gt;
+                  &lt;th className=&quot;text-start px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;{t(&#x27;N° de commande&#x27;)}&lt;/th&gt;
+                  &lt;th className=&quot;text-start px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;{t(&#x27;Client&#x27;)}&lt;/th&gt;
+                  &lt;th className=&quot;text-start px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;{t(&#x27;Appareil&#x27;)}&lt;/th&gt;
+                  &lt;th className=&quot;text-start px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;{t(&#x27;Statut&#x27;)}&lt;/th&gt;
+                  &lt;th className=&quot;text-start px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;{t(&#x27;Prix&#x27;)}&lt;/th&gt;
+                  &lt;th className=&quot;text-start px-5 py-3 border-b border-[#e5e5e5]&quot;&gt;{t(&#x27;Date&#x27;)}&lt;/th&gt;
+                &lt;/tr&gt;
+              &lt;/thead&gt;
+              &lt;tbody&gt;
+                {visibleOrders.map((o) =&gt; (
+                  &lt;tr key={o.id} onClick={() =&gt; openModal(o)} className=&quot;hover:bg-[#fbfaf6] cursor-pointer&quot;&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] font-bold text-[#b3170f]&quot; dir=&quot;ltr&quot; style={{ textAlign: &#x27;right&#x27; }}&gt;
+                      {o.order_number}
+                    &lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;
+                      {o.clients?.is_fidele &amp;&amp; &#x27;⭐ &#x27;}{o.clients?.full_name}
+                      &lt;div className=&quot;text-xs text-[#6b6b6b]&quot;&gt;{o.clients?.phone}&lt;/div&gt;
+                      &lt;div className=&quot;flex flex-wrap gap-1 mt-1.5 empty:hidden&quot;&gt;
+                        &lt;PickupBadge order={o} /&gt;
+                        &lt;PaymentBadge order={o} /&gt;
+                      &lt;/div&gt;
+                    &lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;{o.device_model}&lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;
+                      &lt;StatusBadge status={o.status} /&gt;
+                    &lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4]&quot;&gt;
+                      {o.final_price ? (
+                        &lt;span className={o.price_confirmed ? &#x27;text-green-700&#x27; : &#x27;text-[#b3170f] font-semibold&#x27;}&gt;
+                          {o.final_price}  {t(&#x27;DT&#x27;)} {!o.price_confirmed &amp;&amp; t(&#x27;(non confirmé)&#x27;)}
+                        &lt;/span&gt;
+                      ) : (
+                        &lt;span className=&quot;text-xs text-[#6b6b6b]&quot;&gt;{t(&#x27;Pas encore&#x27;)}&lt;/span&gt;
+                      )}
+                    &lt;/td&gt;
+                    &lt;td className=&quot;px-5 py-3.5 border-b border-[#ececE4] text-xs text-[#6b6b6b]&quot;&gt;
+                      {new Date(o.created_at).toLocaleDateString(getLocale())}
+                    &lt;/td&gt;
+                  &lt;/tr&gt;
+                ))}
+              &lt;/tbody&gt;
+            &lt;/table&gt;
+          &lt;/div&gt;
+        &lt;/&gt;
+      )}
+
+      {selectedOrder &amp;&amp; form &amp;&amp; (
+        &lt;div className=&quot;fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50&quot; onClick={closeModal}&gt;
+          &lt;div
+            className=&quot;bg-white rounded-t-xl sm:rounded-xl p-5 sm:p-6 w-full sm:max-w-lg max-h-[92vh] sm:max-h-[90vh] overflow-y-auto&quot;
+            onClick={(e) =&gt; e.stopPropagation()}
+          &gt;
+            &lt;div className=&quot;flex justify-between items-start mb-4 pb-3 border-b border-[#e5e5e5]&quot;&gt;
+              &lt;div&gt;
+                &lt;h3 className=&quot;font-bold text-[#1a1a1a]&quot;&gt;{selectedOrder.order_number}&lt;/h3&gt;
+              &lt;/div&gt;
+              &lt;StatusBadge status={selectedOrder.status} /&gt;
+            &lt;/div&gt;
+
+            &lt;div className=&quot;mb-4 bg-[#faf9f5] rounded-lg p-3&quot;&gt;
+              &lt;label className=&quot;block text-xs font-bold text-[#e4211b] mb-1.5&quot;&gt;{t(&#x27;Changer le statut de la commande&#x27;)}&lt;/label&gt;
+              {selectedOrder.status === &#x27;delivered&#x27; || selectedOrder.status === &#x27;cancelled&#x27; ? (
+                &lt;p className=&quot;text-xs text-[#6b6b6b]&quot;&gt;{t(&#x27;Commande verrouillée&#x27;)} ({selectedOrder.status === &#x27;delivered&#x27; ? t(&#x27;Livré&#x27;) : t(&#x27;Annulé&#x27;)}) — {t(&#x27;Vous ne pouvez pas changer le statut.&#x27;)}&lt;/p&gt;
+              ) : (
+                &lt;select
+                  value={selectedOrder.status}
+                  onChange={(e) =&gt; handleChangeStatus(e.target.value)}
+                  disabled={changingStatus}
+                  className=&quot;w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm bg-white disabled:opacity-60&quot;
+                &gt;
+                  {STATUS_OPTIONS.map((s) =&gt; (
+                    &lt;option key={s.value} value={s.value}&gt;{s.label}&lt;/option&gt;
+                  ))}
+                &lt;/select&gt;
+              )}
+            &lt;/div&gt;
+
+            &lt;h4 className=&quot;text-xs font-bold text-[#e4211b] mb-3&quot;&gt;{t(&#x27;Informations du client&#x27;)}&lt;/h4&gt;
+            {selectedOrder.client_acknowledged &amp;&amp; selectedOrder.status === &#x27;ready&#x27; &amp;&amp; (
+              &lt;div className=&quot;mb-3&quot;&gt;&lt;PickupBadge order={selectedOrder} /&gt;&lt;/div&gt;
+            )}
+            &lt;div className=&quot;grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4&quot;&gt;
+              &lt;div&gt;
+                &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;{t(&#x27;Nom du client&#x27;)}&lt;/label&gt;
+                &lt;input
+                  value={form.clientName}
+                  onChange={(e) =&gt; setForm({ ...form, clientName: e.target.value })}
+                  className=&quot;w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm&quot;
+                /&gt;
+              &lt;/div&gt;
+              &lt;div&gt;
+                &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;{t(&#x27;N° de téléphone&#x27;)}&lt;/label&gt;
+                &lt;input
+                  value={form.clientPhone}
+                  onChange={(e) =&gt; setForm({ ...form, clientPhone: e.target.value })}
+                  className=&quot;w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm&quot;
+                  dir=&quot;ltr&quot;
+                /&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+
+            &lt;h4 className=&quot;text-xs font-bold text-[#e4211b] mb-3&quot;&gt;{t(&#x27;Informations de l\&#x27;appareil&#x27;)}&lt;/h4&gt;
+            &lt;div className=&quot;mb-3&quot;&gt;
+              &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;{t(&#x27;Modèle de l\&#x27;appareil&#x27;)}&lt;/label&gt;
+              &lt;datalist id=&quot;phone-model-options&quot;&gt;{phoneModels.map((n) =&gt; &lt;option key={n} value={n} /&gt;)}&lt;/datalist&gt;
+              &lt;input
+                list=&quot;phone-model-options&quot;
+                value={form.deviceModel}
+                onChange={(e) =&gt; setForm({ ...form, deviceModel: e.target.value })}
+                className=&quot;w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm&quot;
+              /&gt;
+            &lt;/div&gt;
+            &lt;div className=&quot;mb-3&quot;&gt;
+              &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;{t(&#x27;Description de la panne&#x27;)}&lt;/label&gt;
+              &lt;textarea
+                value={form.issueDescription}
+                onChange={(e) =&gt; setForm({ ...form, issueDescription: e.target.value })}
+                className=&quot;w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm min-h-[60px]&quot;
+              /&gt;
+            &lt;/div&gt;
+            &lt;div className=&quot;grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3&quot;&gt;
+              &lt;div&gt;
+                &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;{t(&#x27;De (DT)&#x27;)}&lt;/label&gt;
+                &lt;input
+                  type=&quot;number&quot;
+                  value={form.priceMin}
+                  onChange={(e) =&gt; setForm({ ...form, priceMin: e.target.value })}
+                  className=&quot;w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm&quot;
+                /&gt;
+              &lt;/div&gt;
+              &lt;div&gt;
+                &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;{t(&#x27;À (DT)&#x27;)}&lt;/label&gt;
+                &lt;input
+                  type=&quot;number&quot;
+                  value={form.priceMax}
+                  onChange={(e) =&gt; setForm({ ...form, priceMax: e.target.value })}
+                  className=&quot;w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm&quot;
+                /&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div className=&quot;mb-4&quot;&gt;
+              &lt;label className=&quot;block text-xs text-[#6b6b6b] mb-1&quot;&gt;{t(&#x27;Technicien assigné&#x27;)}&lt;/label&gt;
+              &lt;select
+                value={form.technicianId}
+                onChange={(e) =&gt; setForm({ ...form, technicianId: e.target.value })}
+                className=&quot;w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm&quot;
+              &gt;
+                &lt;option value=&quot;&quot;&gt;{t(&#x27;-- Choisir un technicien --&#x27;)}&lt;/option&gt;
+                {technicians.map((tc) =&gt; (
+                  &lt;option key={tc.id} value={tc.id}&gt;{tc.full_name}{tc.id === user.id ? &#x27; (&#x27; + t(&#x27;Moi&#x27;) + &#x27;)&#x27; : tc.role === &#x27;admin&#x27; ? &#x27; · Admin&#x27; : &#x27;&#x27;}&lt;/option&gt;
+                ))}
+              &lt;/select&gt;
+            &lt;/div&gt;
+
+            {modalError &amp;&amp; &lt;p className=&quot;text-[#b3170f] text-sm mb-3&quot;&gt;{modalError}&lt;/p&gt;}
+
+            &lt;button
+              onClick={handleSaveEdits}
+              disabled={saving}
+              className=&quot;w-full bg-[#1a1a1a] text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:opacity-90 disabled:opacity-60 mb-4&quot;
+            &gt;
+              {saving ? t(&#x27;Enregistrement...&#x27;) : t(&#x27;Enregistrer les modifications&#x27;)}
+            &lt;/button&gt;
+
+            {/* fidele client: apply the discount? (comptoir or technicien can answer) */}
+            &lt;FideleDiscount order={selectedOrder} onChanged={handleDiscountChanged} /&gt;
+
+            &lt;div className=&quot;pt-4 border-t border-[#e5e5e5]&quot;&gt;
+              &lt;h4 className=&quot;text-xs font-bold text-[#e4211b] mb-2&quot;&gt;{t(&#x27;Prix final (fixé par le technicien)&#x27;)}&lt;/h4&gt;
+              {selectedOrder.final_price ? (
+                &lt;div className=&quot;flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#faf9f5] rounded-lg p-3&quot;&gt;
+                  &lt;div&gt;
+                    &lt;span className=&quot;font-bold text-[#1a1a1a]&quot;&gt;{selectedOrder.final_price}  {t(&#x27;DT&#x27;)}&lt;/span&gt;
+                    &lt;span className={`text-xs me-2 ${selectedOrder.price_confirmed ? &#x27;text-green-700&#x27; : &#x27;text-[#b3170f]&#x27;}`}&gt;
+                      {selectedOrder.price_confirmed ? t(&#x27;✔ Confirmé&#x27;) : t(&#x27;● Pas encore confirmé&#x27;)}
+                    &lt;/span&gt;
+                  &lt;/div&gt;
+                  {!selectedOrder.price_confirmed &amp;&amp; (
+                    &lt;button
+                      onClick={handleConfirmPrice}
+                      disabled={confirming}
+                      className=&quot;w-full sm:w-auto bg-green-700 text-white text-sm px-4 py-2 rounded-lg hover:opacity-90 disabled:opacity-60&quot;
+                    &gt;
+                      {confirming ? &#x27;...&#x27; : t(&#x27;Confirmation du prix&#x27;)}
+                    &lt;/button&gt;
+                  )}
+                &lt;/div&gt;
+              ) : (
+                &lt;p className=&quot;text-xs text-[#6b6b6b]&quot;&gt;{t(&#x27;Le technicien n\&#x27;a pas encore fixé le prix final.&#x27;)}&lt;/p&gt;
+              )}
+
+              {/* total / paid / remaining */}
+              &lt;PaymentSummary order={selectedOrder} /&gt;
+
+              {/* QR: reprint the client receipt / device sticker */}
+              &lt;button
+                type=&quot;button&quot;
+                onClick={() =&gt; setPrintOrder({
+                  ...selectedOrder,
+                  client_name: selectedOrder.clients?.full_name,
+                })}
+                className=&quot;w-full border border-[#e5e5e5] text-[#1a1a1a] text-sm font-semibold px-4 py-2.5 rounded-lg hover:bg-[#f7f7f7] mt-3&quot;
+              &gt;
+                
+                {t(&#x27;🖨 Imprimer le reçu / l\&#x27;étiquette (QR)&#x27;)}
+              &lt;/button&gt;
+
+              {/* Customer leaves without paying everything (only shows after the price is confirmed) */}
+              {selectedOrder.status !== &#x27;cancelled&#x27; &amp;&amp; (
+                &lt;UnpaidDeliveryButton order={selectedOrder} onDone={handleUnpaidDone} /&gt;
+              )}
+            &lt;/div&gt;
+
+            &lt;button
+              type=&quot;button&quot;
+              onClick={closeModal}
+              className=&quot;w-full border border-[#e5e5e5] text-[#1a1a1a] text-sm px-4 py-2.5 rounded-lg hover:bg-[#f7f7f7] mt-4&quot;
+            &gt;
+              
+              {t(&#x27;Fermer&#x27;)}
+            &lt;/button&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+      )}
+
+      {printOrder &amp;&amp; &lt;PrintOrderDialog order={printOrder} onClose={() =&gt; setPrintOrder(null)} /&gt;}
+    &lt;/div&gt;
+  )
+}
+</pre></div>
+<h2 id="f">4 — Test</h2><table><tr><th>#</th><th>Do</th><th>You should see</th></tr><tr><td>1</td><td><code>npm run dev</code>, open the menu → <b>Catalogue téléphones</b>, type « A15 »</td><td>Samsung Galaxy A15; tap it: specs and « ⚠️ Fiche à vérifier ».</td></tr><tr><td>2</td><td>On the card: <b>+ Ajouter une pièce</b> → screen, quality Original, buying + selling price; add a 2nd and 3rd quality</td><td>The price guide opens with the model filled in. The card then shows « 3 pièces ».</td></tr><tr><td>3</td><td>Edit one price (as comptoir, then as technicien)</td><td>It saves. « Historique des prix » appears under the form; the row shows buying price and margin.</td></tr><tr><td>4</td><td>Reception → new device: type « Redmi » in the model field</td><td>Model suggestions appear (a model not in the list still works).</td></tr><tr><td>5</td><td>Switch to EN, then ع</td><td>Catalogue and price guide texts are translated; Arabic mirrors.</td></tr></table><script>function cp(b){navigator.clipboard.writeText(b.nextElementSibling.innerText).then(()=>{b.textContent="Copied";setTimeout(()=>b.textContent="Copy",1200)})}</script></body></html>
