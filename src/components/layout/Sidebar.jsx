@@ -77,7 +77,7 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
   const { profile, logout } = useAuth()
   const { t } = useI18n()
   const navigate = useNavigate()
-  const groups = NAV_BY_ROLE[profile?.role] || []
+  const groups = NAV_BY_ROLE[profile?.role === 'super_admin' ? 'admin' : profile?.role] || []
   const initial = (profile?.full_name || '?').trim().charAt(0).toUpperCase()
 
   async function handleLogout() {
