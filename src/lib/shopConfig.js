@@ -1,6 +1,6 @@
 // One place for shop details used on receipts / stickers / the public tracking page.
 export const SHOP = {
-  name: 'MOBILE 4 YOU',
+  name: 'Mamado GSM',
   phone: '',            // e.g. '21 654 321' — printed on the receipt if filled
   address: '',          // optional
 }
