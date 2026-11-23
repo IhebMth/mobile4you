@@ -101,9 +101,9 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
         {/* brand */}
         <div className="flex items-center justify-between px-5 pt-6 pb-5">
           <div className="flex items-center gap-3">
-            <img src={logo} alt="Mobile 4 You" className="w-11 h-11 rounded-xl object-cover shrink-0 ring-2 ring-white/10" />
+            <img src={logo} alt="Mamado GSM" className="w-11 h-11 rounded-xl object-cover shrink-0 ring-2 ring-white/10" />
             <div className="leading-tight">
-              <p className="text-[14px] font-extrabold text-white tracking-wide">MOBILE 4 YOU</p>
+              <p className="text-[14px] font-extrabold text-white tracking-wide">Mamado GSM</p>
               <p className="text-[11px] text-[#8d8d8d] mt-0.5">{t('Atelier de réparation de téléphones')}</p>
             </div>
           </div>
