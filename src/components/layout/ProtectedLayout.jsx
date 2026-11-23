@@ -36,8 +36,8 @@ export default function ProtectedRoute({ allowedRoles }) {
           where the sidebar is already always visible on the side. */}
       <header className="lg:hidden flex items-center justify-between bg-[#1a1a1a] text-white px-4 py-3 sticky top-0 z-30">
         <div className="flex items-center gap-2">
-          <img src={logo} alt="Mobile 4 You" className="w-8 h-8 rounded-lg object-cover" />
-          <span className="text-[12px] font-extrabold tracking-wide">MOBILE 4 YOU</span>
+          <img src={logo} alt="Mamado GSM" className="w-8 h-8 rounded-lg object-cover" />
+          <span className="text-[12px] font-extrabold tracking-wide">Mamado GSM</span>
         </div>
         <div className="flex items-center gap-1">
         <HeaderTools onDark />
