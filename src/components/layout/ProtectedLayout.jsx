@@ -26,7 +26,8 @@ export default function ProtectedRoute({ allowedRoles }) {
     const next = encodeURIComponent(location.pathname + location.search)
     return <Navigate to={`/login?next=${next}`} replace />
   }
-  if (allowedRoles && !allowedRoles.includes(profile?.role)) {
+  const role = profile?.role === 'super_admin' ? 'admin' : profile?.role
+if (allowedRoles && !allowedRoles.includes(role)) {
     return <Navigate to="/unauthorized" replace />
   }
 
