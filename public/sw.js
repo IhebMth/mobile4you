@@ -19,7 +19,7 @@ self.addEventListener('push', (event) => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     const isApple = /iPhone|iPad|iPod/.test(self.navigator.userAgent)
     if (!isApple && wins.some((w) => w.visibilityState === 'visible')) return
-    await self.registration.showNotification(d.title || 'Mobile 4 You', {
+    await self.registration.showNotification(d.title || 'Mamado GSM', {
       body: d.body || '',
       icon: '/icon-192.png',
       badge: '/badge-96.png',   // small white silhouette in the Android status bar
