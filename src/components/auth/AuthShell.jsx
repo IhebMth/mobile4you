@@ -9,8 +9,8 @@ export default function AuthShell({ title, subtitle, children, footer }) {
       <CornerTools />
       <div className="w-full max-w-[400px]">
         <div className="flex flex-col items-center mb-6">
-          <img src={logo} alt="Mobile 4 You" className="w-16 h-16 rounded-2xl object-cover shadow-sm ring-4 ring-white" />
-          <p className="mt-3 text-[13px] font-extrabold tracking-[0.2em] text-[#1a1a1a]">MOBILE 4 YOU</p>
+          <img src={logo} alt="Mamado GSM" className="w-16 h-16 rounded-2xl object-cover shadow-sm ring-4 ring-white" />
+          <p className="mt-3 text-[13px] font-extrabold tracking-[0.2em] text-[#1a1a1a]">Mamado GSM</p>
         </div>
 
         <div className="bg-white border border-[#e8e6df] rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgba(0,0,0,0.05)]">
