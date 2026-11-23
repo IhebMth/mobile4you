@@ -146,7 +146,7 @@ export default function Login() {
       <form onSubmit={handleLogin} className="bg-white border border-[#e8e6df] rounded-3xl p-6 sm:p-9 w-full max-w-[400px] shadow-[0_8px_30px_rgba(0,0,0,0.05)]">
         <div className="flex flex-col items-center mb-8">
           <img src={logo} alt="Mobile 4 You" className="w-16 h-16 rounded-2xl object-cover mb-3 ring-4 ring-[#f4f2ec]" />
-          <h1 className="text-lg font-extrabold text-[#1a1a1a]">MOBILE 4 YOU</h1>
+          <h1 className="text-lg font-extrabold text-[#1a1a1a]">Mamado GSM</h1>
           <p className="text-sm text-[#6b6b6b] mt-1">{t('Connexion')}</p>
         </div>
 
